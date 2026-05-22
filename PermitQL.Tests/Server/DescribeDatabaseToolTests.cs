@@ -1132,4 +1132,192 @@ public sealed class DescribeDatabaseToolTests
         Assert.Contains("select", ops);
         Assert.Contains("insert", ops);
     }
+
+    // ==================== Column statistics ====================
+
+    [Fact]
+    public async Task ColumnStatistics_IncludedInStatisticsSection()
+    {
+        var schemas = new Dictionary<string, SchemaRule>
+        {
+            ["public"] = new SchemaRule
+            {
+                Tables = new Dictionary<string, TableRule>
+                {
+                    ["employees"] = new TableRule
+                    {
+                        AllowedColumns = ["id", "salary"],
+                        RowFilter = null,
+                    },
+                },
+            },
+        };
+        var rules = MakeRules(schemas);
+        _rulesProvider.GetRuleSet("test").Returns(rules);
+        _factory.Dialect.Returns(SqlDialect.PostgreSql);
+
+        _dataAccessor.GetTableColumnsAsync("public", "employees", Arg.Any<CancellationToken>())
+            .Returns(new List<SchemaColumnMetadata>
+            {
+                new("id", "integer", false, true, null, false, GenerationKind.None),
+                new("salary", "numeric", true, false, null, false, GenerationKind.None),
+            });
+        _dataAccessor.GetTableConstraintsAsync("public", "employees", Arg.Any<CancellationToken>())
+            .Returns(new TableConstraintMetadata([], []));
+        _dataAccessor.GetOutboundForeignKeysAsync("public", "employees", Arg.Any<CancellationToken>())
+            .Returns(new List<ForeignKeyMetadata>());
+        _dataAccessor.GetInboundForeignKeysAsync("public", "employees", Arg.Any<CancellationToken>())
+            .Returns(new List<ForeignKeyMetadata>());
+        _dataAccessor.GetTableIndexesAsync("public", "employees", Arg.Any<CancellationToken>())
+            .Returns(new List<TableIndexMetadata>());
+        _dataAccessor.GetTableStatisticsAsync("public", "employees", Arg.Any<CancellationToken>())
+            .Returns(new TableStatisticsMetadata(24, null,
+                new Dictionary<string, ColumnStatisticsMetadata>
+                {
+                    ["id"] = new(0.0, 24, null, null, "100", "206"),
+                    ["salary"] = new(0.04, 20, ["2400", "4200"], [0.2, 0.15], "2100", "24000"),
+                }));
+        _dataAccessor.GetQueryCapabilitiesAsync(Arg.Any<CancellationToken>())
+            .Returns(new QueryCapabilityMetadata(
+                CapabilitySupport.Supported, CapabilitySupport.Supported,
+                CapabilitySupport.Supported, CapabilitySupport.Supported,
+                CapabilitySupport.Supported, []));
+
+        var root = await CallDescribeDatabase();
+        var stats = root.GetProperty("schemas").GetProperty("public")
+                        .GetProperty("tables").GetProperty("employees")
+                        .GetProperty("statistics");
+
+        Assert.Equal(24, stats.GetProperty("approximateRowCount").GetInt64());
+
+        var colStats = stats.GetProperty("columnStatistics");
+        Assert.Equal(JsonValueKind.Object, colStats.ValueKind);
+
+        var salaryStats = colStats.GetProperty("salary");
+        Assert.Equal(0.04, salaryStats.GetProperty("nullFraction").GetDouble(), 0.001);
+        Assert.Equal(20, salaryStats.GetProperty("approximateDistinctCount").GetInt64());
+        Assert.Equal("2100", salaryStats.GetProperty("minValue").GetString());
+        Assert.Equal("24000", salaryStats.GetProperty("maxValue").GetString());
+
+        var mcv = salaryStats.GetProperty("mostCommonValues");
+        Assert.Equal(2, mcv.GetArrayLength());
+        Assert.Equal("2400", mcv[0].GetString());
+    }
+
+    [Fact]
+    public async Task ColumnStatistics_HiddenColumnsFiltered()
+    {
+        var schemas = new Dictionary<string, SchemaRule>
+        {
+            ["public"] = new SchemaRule
+            {
+                Tables = new Dictionary<string, TableRule>
+                {
+                    ["users"] = new TableRule
+                    {
+                        AllowedColumns = ["id", "name"],
+                        RowFilter = null,
+                    },
+                },
+            },
+        };
+        var rules = MakeRules(schemas);
+        _rulesProvider.GetRuleSet("test").Returns(rules);
+        _factory.Dialect.Returns(SqlDialect.PostgreSql);
+
+        _dataAccessor.GetTableColumnsAsync("public", "users", Arg.Any<CancellationToken>())
+            .Returns(new List<SchemaColumnMetadata>
+            {
+                new("id", "integer", false, true, null, false, GenerationKind.None),
+                new("name", "text", false, false, null, false, GenerationKind.None),
+                new("secret", "text", false, false, null, false, GenerationKind.None),
+            });
+        _dataAccessor.GetTableConstraintsAsync("public", "users", Arg.Any<CancellationToken>())
+            .Returns(new TableConstraintMetadata([], []));
+        _dataAccessor.GetOutboundForeignKeysAsync("public", "users", Arg.Any<CancellationToken>())
+            .Returns(new List<ForeignKeyMetadata>());
+        _dataAccessor.GetInboundForeignKeysAsync("public", "users", Arg.Any<CancellationToken>())
+            .Returns(new List<ForeignKeyMetadata>());
+        _dataAccessor.GetTableIndexesAsync("public", "users", Arg.Any<CancellationToken>())
+            .Returns(new List<TableIndexMetadata>());
+        _dataAccessor.GetTableStatisticsAsync("public", "users", Arg.Any<CancellationToken>())
+            .Returns(new TableStatisticsMetadata(100, null,
+                new Dictionary<string, ColumnStatisticsMetadata>
+                {
+                    ["id"] = new(0.0, 100, null, null, "1", "100"),
+                    ["name"] = new(0.0, 90, null, null, null, null),
+                    ["secret"] = new(0.0, 50, ["password123"], [0.5], null, null),
+                }));
+        _dataAccessor.GetQueryCapabilitiesAsync(Arg.Any<CancellationToken>())
+            .Returns(new QueryCapabilityMetadata(
+                CapabilitySupport.Supported, CapabilitySupport.Supported,
+                CapabilitySupport.Supported, CapabilitySupport.Supported,
+                CapabilitySupport.Supported, []));
+
+        var root = await CallDescribeDatabase();
+        var table = root.GetProperty("schemas").GetProperty("public")
+                        .GetProperty("tables").GetProperty("users");
+
+        var colStats = table.GetProperty("statistics").GetProperty("columnStatistics");
+        var colNames = colStats.EnumerateObject().Select(p => p.Name).ToList();
+
+        Assert.Contains("id", colNames);
+        Assert.Contains("name", colNames);
+        Assert.DoesNotContain("secret", colNames);
+
+        var omissions = table.GetProperty("omissions");
+        var omissionsList = omissions.EnumerateArray()
+            .Select(o => o.GetString()).ToList();
+        Assert.Contains("hidden_column_statistics_omitted", omissionsList);
+    }
+
+    [Fact]
+    public async Task ColumnStatistics_NullWhenNoColumnStats()
+    {
+        var schemas = new Dictionary<string, SchemaRule>
+        {
+            ["public"] = new SchemaRule
+            {
+                Tables = new Dictionary<string, TableRule>
+                {
+                    ["orders"] = new TableRule
+                    {
+                        AllowedColumns = ["id"],
+                        RowFilter = null,
+                    },
+                },
+            },
+        };
+        var rules = MakeRules(schemas);
+        _rulesProvider.GetRuleSet("test").Returns(rules);
+        _factory.Dialect.Returns(SqlDialect.PostgreSql);
+
+        _dataAccessor.GetTableColumnsAsync("public", "orders", Arg.Any<CancellationToken>())
+            .Returns(new List<SchemaColumnMetadata>
+            {
+                new("id", "integer", false, true, null, false, GenerationKind.None),
+            });
+        _dataAccessor.GetTableConstraintsAsync("public", "orders", Arg.Any<CancellationToken>())
+            .Returns(new TableConstraintMetadata([], []));
+        _dataAccessor.GetOutboundForeignKeysAsync("public", "orders", Arg.Any<CancellationToken>())
+            .Returns(new List<ForeignKeyMetadata>());
+        _dataAccessor.GetInboundForeignKeysAsync("public", "orders", Arg.Any<CancellationToken>())
+            .Returns(new List<ForeignKeyMetadata>());
+        _dataAccessor.GetTableIndexesAsync("public", "orders", Arg.Any<CancellationToken>())
+            .Returns(new List<TableIndexMetadata>());
+        _dataAccessor.GetTableStatisticsAsync("public", "orders", Arg.Any<CancellationToken>())
+            .Returns(new TableStatisticsMetadata(500, null));
+        _dataAccessor.GetQueryCapabilitiesAsync(Arg.Any<CancellationToken>())
+            .Returns(new QueryCapabilityMetadata(
+                CapabilitySupport.Supported, CapabilitySupport.Supported,
+                CapabilitySupport.Supported, CapabilitySupport.Supported,
+                CapabilitySupport.Supported, []));
+
+        var root = await CallDescribeDatabase();
+        var stats = root.GetProperty("schemas").GetProperty("public")
+                        .GetProperty("tables").GetProperty("orders")
+                        .GetProperty("statistics");
+
+        Assert.Equal(JsonValueKind.Null, stats.GetProperty("columnStatistics").ValueKind);
+    }
 }

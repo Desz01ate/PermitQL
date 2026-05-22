@@ -1,5 +1,6 @@
 namespace PermitQL.Tests.Server;
 
+using PermitQL;
 using PermitQL.Abstractions;
 using PermitQL.Server;
 
@@ -45,15 +46,16 @@ public sealed class StartupBootstrapTests : IDisposable
     }
 
     [Fact]
-    public void ProviderMetadataResolverFactory_ForSqlite_ReturnsConcreteResolvers()
+    public void PermitQLFactory_ForSqlite_CreatesSupportedResolvers()
     {
-        var resolvers = ProviderMetadataResolverFactory.Create(SqlDialect.Sqlite);
+        var factory = new PermitQLFactory(SqlDialect.Sqlite);
 
-        Assert.NotNull(resolvers.Constraints);
-        Assert.NotNull(resolvers.Relationships);
-        Assert.NotNull(resolvers.Indexes);
-        Assert.NotNull(resolvers.Statistics);
-        Assert.NotNull(resolvers.Capabilities);
+        Assert.NotNull(factory.CreateForeignKeyResolver());
+        Assert.NotNull(factory.CreateConstraintResolver());
+        Assert.NotNull(factory.CreateRelationshipResolver());
+        Assert.NotNull(factory.CreateIndexResolver());
+        Assert.NotNull(factory.CreateStatisticsResolver());
+        Assert.NotNull(factory.CreateProviderCapabilityResolver());
     }
 
     [Fact]

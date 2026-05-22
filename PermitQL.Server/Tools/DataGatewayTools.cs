@@ -205,6 +205,21 @@ public static partial class PermitQLTools
             omissions.Add("unavailable_statistics");
         }
 
+        // Filter column statistics to only visible columns
+        Dictionary<string, ColumnStatisticsMetadata>? filteredColumnStats = null;
+        if (statistics.ColumnStatistics is { } allColumnStats)
+        {
+            filteredColumnStats = allColumnStats
+                .Where(kvp => !hiddenColumnNames.Contains(kvp.Key))
+                .ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
+
+            if (filteredColumnStats.Count < allColumnStats.Count)
+                omissions.Add("hidden_column_statistics_omitted");
+
+            if (filteredColumnStats.Count == 0)
+                filteredColumnStats = null;
+        }
+
         return new
         {
             allowedOperations = allowedOps,
@@ -269,6 +284,17 @@ public static partial class PermitQLTools
             {
                 statistics.ApproximateRowCount,
                 statistics.LastAnalyzed,
+                columnStatistics = filteredColumnStats?.ToDictionary(
+                    kvp => kvp.Key,
+                    kvp => new
+                    {
+                        kvp.Value.NullFraction,
+                        kvp.Value.ApproximateDistinctCount,
+                        kvp.Value.MostCommonValues,
+                        kvp.Value.MostCommonFrequencies,
+                        kvp.Value.MinValue,
+                        kvp.Value.MaxValue,
+                    }),
             },
             omissions,
         };

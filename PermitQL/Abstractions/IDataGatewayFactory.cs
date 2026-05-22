@@ -14,15 +14,19 @@ public interface IPermitQLFactory
 
     IQueryRewriter CreateQueryRewriter(IDataAccessor dataAccessor);
 
-    IDataAccessor CreateDataAccessor(Func<DbConnection> connectionFactory, IForeignKeyResolver? fkResolver);
+    IForeignKeyResolver CreateForeignKeyResolver();
 
-    IDataAccessor CreateDataAccessor(
-        Func<DbConnection> connectionFactory,
-        IConstraintResolver? constraintResolver = null,
-        IRelationshipResolver? relationshipResolver = null,
-        IIndexResolver? indexResolver = null,
-        IStatisticsResolver? statisticsResolver = null,
-        IProviderCapabilityResolver? capabilityResolver = null);
+    IConstraintResolver CreateConstraintResolver();
+
+    IRelationshipResolver CreateRelationshipResolver();
+
+    IIndexResolver CreateIndexResolver();
+
+    IStatisticsResolver CreateStatisticsResolver();
+
+    IProviderCapabilityResolver CreateProviderCapabilityResolver();
+
+    IDataAccessor CreateDataAccessor(Func<DbConnection> connectionFactory);
 
     IQueryPipeline CreatePipeline(
         IRulesProvider rulesProvider,

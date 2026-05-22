@@ -1,8 +1,8 @@
-namespace PermitQL.Server.Implementations.MetadataResolvers;
+namespace PermitQL.Data.Resolvers;
 
 using System.Data.Common;
-using PermitQL.Abstractions;
-using PermitQL.Models;
+using Abstractions;
+using Models;
 
 public sealed class SqliteConstraintResolver : IConstraintResolver
 {
@@ -28,7 +28,7 @@ public sealed class SqliteConstraintResolver : IConstraintResolver
         command.CommandText = $"PRAGMA index_list(\"{table.Replace("\"", "\"\"")}\")";
 
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
-        var indexEntries = new List<(string Name, bool IsUnique, string Origin)>();
+        var indexEntries = new List<(string Name, string Origin)>();
 
         while (await reader.ReadAsync(cancellationToken))
         {
@@ -38,11 +38,11 @@ public sealed class SqliteConstraintResolver : IConstraintResolver
 
             if (isUnique && origin == "u")
             {
-                indexEntries.Add((name, isUnique, origin));
+                indexEntries.Add((name, origin));
             }
         }
 
-        foreach (var (name, _, _) in indexEntries)
+        foreach (var (name, _) in indexEntries)
         {
             var columns = new List<string>();
             await using var infoCmd = connection.CreateCommand();
@@ -95,17 +95,30 @@ public sealed class SqliteConstraintResolver : IConstraintResolver
         var idx = 0;
         while ((idx = upper.IndexOf("CHECK", idx, StringComparison.Ordinal)) >= 0)
         {
-            idx += 5; // skip "CHECK"
-            // skip whitespace
-            while (idx < ddl.Length && char.IsWhiteSpace(ddl[idx])) idx++;
-            if (idx >= ddl.Length || ddl[idx] != '(') continue;
-            // balanced paren extraction
+            idx += 5;
+            while (idx < ddl.Length && char.IsWhiteSpace(ddl[idx]))
+            {
+                idx++;
+            }
+
+            if (idx >= ddl.Length || ddl[idx] != '(')
+            {
+                continue;
+            }
+
             var depth = 0;
             var start = idx + 1;
             for (var i = idx; i < ddl.Length; i++)
             {
-                if (ddl[i] == '(') depth++;
-                else if (ddl[i] == ')') depth--;
+                if (ddl[i] == '(')
+                {
+                    depth++;
+                }
+                else if (ddl[i] == ')')
+                {
+                    depth--;
+                }
+
                 if (depth == 0)
                 {
                     results.Add(ddl[start..i].Trim());
