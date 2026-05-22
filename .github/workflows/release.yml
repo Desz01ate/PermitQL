@@ -1,0 +1,101 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+env:
+  DOTNET_NOLOGO: true
+  CONFIGURATION: Release
+  PACKAGE_PROJECT: PermitQL.Server/PermitQL.Server.csproj
+  PACKAGE_ID: permitql
+  NUGET_SOURCE: https://api.nuget.org/v3/index.json
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Derive release version from tag
+        id: version
+        shell: bash
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          if [[ ! "$tag" =~ ^v([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
+            echo "Tag must match vX.Y.Z. Received: $tag" >&2
+            exit 1
+          fi
+
+          version="${BASH_REMATCH[1]}"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Restore solution
+        run: dotnet restore PermitQL.sln
+
+      - name: Build solution
+        run: dotnet build PermitQL.sln -c "$CONFIGURATION" --no-restore
+
+      - name: Test solution
+        run: dotnet test PermitQL.sln -c "$CONFIGURATION" --no-build
+
+      - name: Pack global tool
+        run: |
+          mkdir -p artifacts/nuget
+          dotnet pack "$PACKAGE_PROJECT" \
+            -c "$CONFIGURATION" \
+            --no-restore \
+            -p:PackageVersion="${{ steps.version.outputs.version }}" \
+            -o artifacts/nuget
+
+      - name: Publish package to NuGet
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        run: |
+          dotnet nuget push artifacts/nuget/*.nupkg \
+            --api-key "$NUGET_API_KEY" \
+            --source "$NUGET_SOURCE" \
+            --skip-duplicate
+
+      - name: Publish standalone binaries
+        shell: bash
+        run: |
+          mkdir -p artifacts/publish artifacts/release
+          for rid in linux-x64 win-x64 osx-arm64; do
+            output_dir="artifacts/publish/$rid"
+
+            dotnet publish "$PACKAGE_PROJECT" \
+              -c "$CONFIGURATION" \
+              -r "$rid" \
+              --self-contained true \
+              -o "$output_dir"
+
+            (
+              cd "$output_dir"
+              zip -r "../../release/${PACKAGE_ID}-${rid}-${{ steps.version.outputs.tag }}.zip" .
+            )
+          done
+
+      - name: Create or update GitHub release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          tag="${{ steps.version.outputs.tag }}"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" artifacts/release/*.zip --clobber
+          else
+            gh release create "$tag" artifacts/release/*.zip --title "$tag" --generate-notes
+          fi
