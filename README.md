@@ -49,6 +49,28 @@ The repository contains:
 
 The default configuration in `PermitQL.Server/appsettings.json` points to the local Postgres instance created by `docker compose`.
 
+## Installation
+
+Install the global tool from `nuget.org`:
+
+```bash
+dotnet tool install --global permitql
+```
+
+Update an existing installation:
+
+```bash
+dotnet tool update --global permitql
+```
+
+Tagged releases also publish standalone server archives for:
+
+- `linux-x64`
+- `win-x64`
+- `osx-arm64`
+
+Download those binaries from the repository's GitHub Releases page when you do not want to install through the .NET tool feed.
+
 ## Configuration
 
 Server settings are read from the `PermitQL` configuration section.
@@ -117,6 +139,9 @@ The server project exposes two verbs:
 Examples:
 
 ```bash
+permitql discover --output discovered_schema.yaml
+permitql serve
+permitql serve --stdio
 dotnet run --project PermitQL.Server -- discover --output discovered_schema.yaml
 dotnet run --project PermitQL.Server -- serve
 dotnet run --project PermitQL.Server -- serve --stdio
