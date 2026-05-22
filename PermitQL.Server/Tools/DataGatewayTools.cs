@@ -3,6 +3,7 @@ namespace PermitQL.Server.Tools;
 using System.ComponentModel;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using PermitQL.Abstractions;
 using PermitQL.Models;
@@ -11,10 +12,11 @@ using ModelContextProtocol.Server;
 [McpServerToolType]
 public static partial class PermitQLTools
 {
-    private static readonly JsonSerializerOptions JsonOptions = new()
+    private readonly static JsonSerializerOptions JsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         WriteIndented = true,
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
     };
 
     [GeneratedRegex(@"^[a-zA-Z_][a-zA-Z0-9_]*$")]
@@ -159,12 +161,12 @@ public static partial class PermitQLTools
 
         // Filter constraints
         var filteredUnique = constraints.Unique
-            .Where(u => !u.Columns.Any(c => hiddenColumnNames.Contains(c)))
-            .ToList();
+                                        .Where(u => !u.Columns.Any(c => hiddenColumnNames.Contains(c)))
+                                        .ToList();
         var filteredCheck = constraints.Check
-            .Where(ch => !hiddenColumnNames.Any(hc =>
-                ch.Expression.Contains(hc, StringComparison.OrdinalIgnoreCase)))
-            .ToList();
+                                       .Where(ch => !hiddenColumnNames.Any(hc =>
+                                           ch.Expression.Contains(hc, StringComparison.OrdinalIgnoreCase)))
+                                       .ToList();
 
         if (filteredUnique.Count < constraints.Unique.Count ||
             filteredCheck.Count < constraints.Check.Count)
@@ -174,8 +176,8 @@ public static partial class PermitQLTools
 
         // Filter indexes
         var filteredIndexes = indexes
-            .Where(ix => !ix.Columns.Any(c => hiddenColumnNames.Contains(c)))
-            .ToList();
+                              .Where(ix => !ix.Columns.Any(c => hiddenColumnNames.Contains(c)))
+                              .ToList();
 
         if (filteredIndexes.Count < indexes.Count)
         {
@@ -207,11 +209,12 @@ public static partial class PermitQLTools
 
         // Filter column statistics to only visible columns
         Dictionary<string, ColumnStatisticsMetadata>? filteredColumnStats = null;
+
         if (statistics.ColumnStatistics is { } allColumnStats)
         {
             filteredColumnStats = allColumnStats
-                .Where(kvp => !hiddenColumnNames.Contains(kvp.Key))
-                .ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
+                                  .Where(kvp => !hiddenColumnNames.Contains(kvp.Key))
+                                  .ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
 
             if (filteredColumnStats.Count < allColumnStats.Count)
                 omissions.Add("hidden_column_statistics_omitted");
@@ -233,6 +236,7 @@ public static partial class PermitQLTools
                 c.DefaultValue,
                 c.IsGenerated,
                 generationKind = FormatGenerationKind(c.GenerationKind),
+                semanticDescription = tableRule.ColumnSemanticDescriptions.GetValueOrDefault(c.Name),
             }),
             constraints = new
             {
@@ -296,6 +300,7 @@ public static partial class PermitQLTools
                         kvp.Value.MaxValue,
                     }),
             },
+            tableSemanticDescription = tableRule.TableSemanticDescription,
             omissions,
         };
     }

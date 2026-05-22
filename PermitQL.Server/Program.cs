@@ -4,6 +4,7 @@ using PermitQL.Abstractions;
 using PermitQL.Server;
 using PermitQL.Server.Models;
 using System.Text;
+using PermitQL.Rules;
 
 await Parser.Default.ParseArguments<DiscoverOptions, ServeOptions>(args)
             .MapResult(
@@ -16,8 +17,11 @@ async Task<int> RunDiscoverAsync(DiscoverOptions discover)
     var options = StartupBootstrap.LoadOptions(allowMissingAppSettings: false);
     var connectionFactory = ConnectionFactory.Create(options.Provider, options.ConnectionString);
     var schemaDiscovery = SchemaDiscoveryFactory.Create(options.Provider, connectionFactory);
+
     await schemaDiscovery.DiscoverAsync(discover.Output, discover.Schemas.ToArray());
+
     Console.WriteLine($"Schema discovered and written to {discover.Output}");
+
     return 0;
 }
 
@@ -85,7 +89,13 @@ async Task<int> RunServeAsync(ServeOptions serve)
             return Results.Ok(rulesProvider.GetAvailableKeys());
         });
 
-        app.MapGet("/api/databases/{key}", async (string key, IDataAccessor dataAccessor, IRulesProvider rulesProvider, IPermitQLFactory factory, ValidatorCapabilityDescriptor validatorCapabilities, CancellationToken ct) =>
+        app.MapGet("/api/databases/{key}", async (
+            string key,
+            IDataAccessor dataAccessor,
+            IRulesProvider rulesProvider,
+            IPermitQLFactory factory,
+            ValidatorCapabilityDescriptor validatorCapabilities,
+            CancellationToken ct) =>
         {
             try
             {
@@ -108,6 +118,7 @@ async Task<int> RunServeAsync(ServeOptions serve)
 public static class StartupBootstrap
 {
     public static string BasePath => AppContext.BaseDirectory;
+
     private const string ConfigJsonEnvironmentVariable = "DATAGATEWAY_CONFIG_JSON";
 
     public static PermitQLOptions LoadOptions(bool allowMissingAppSettings, string? basePath = null)
@@ -120,6 +131,7 @@ public static class StartupBootstrap
                             .AddJsonFile($"appsettings.{environmentName}.json", optional: true);
 
         var configJson = Environment.GetEnvironmentVariable(ConfigJsonEnvironmentVariable);
+
         if (!string.IsNullOrWhiteSpace(configJson))
         {
             configBuilder.AddJsonStream(new MemoryStream(Encoding.UTF8.GetBytes(configJson)));

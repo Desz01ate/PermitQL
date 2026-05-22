@@ -16,7 +16,7 @@
     <PropertyGroup Condition="'$(_IsPacking)' == 'true'">
         <UseCurrentRuntimeIdentifier>false</UseCurrentRuntimeIdentifier>
     </PropertyGroup>
-    <PropertyGroup Condition="'$(_IsPacking)' != 'true'">
+    <PropertyGroup Condition="'$(Configuration)' == 'Release' And '$(_IsPacking)' != 'true'">
         <PublishSingleFile>true</PublishSingleFile>
         <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
         <SelfContained>true</SelfContained>

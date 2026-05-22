@@ -65,6 +65,13 @@ public abstract class SchemaDiscoveryBase : ISchemaDiscovery
                 sb.AppendLine($"        # denied_columns: []    # excludes columns when allowed_columns is [\"*\"]");
                 sb.AppendLine($"        # row_filter: \"\"        # SQL predicate injected into WHERE/ON clauses");
                 sb.AppendLine($"        # allowed_operations: [] # overrides global; supported: select, insert, update, delete");
+                sb.AppendLine($"        # table_semantic_description: description for {table}");
+                sb.AppendLine($"        # column_semantic_descriptions:");
+
+                foreach (var column in columns)
+                {
+                    sb.AppendLine($"            # {column}: semantic description for {column}");
+                }
             }
         }
 
