@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <IsPackable>false</IsPackable>
+        <IsTestProject>true</IsTestProject>
+    </PropertyGroup>
+    <ItemGroup>
+        <Using Include="Xunit"/>
+    </ItemGroup>
+    <ItemGroup>
+        <PackageReference Include="Microsoft.NET.Test.Sdk"/>
+        <PackageReference Include="xunit"/>
+        <PackageReference Include="xunit.runner.visualstudio"/>
+        <PackageReference Include="NSubstitute"/>
+    </ItemGroup>
+    <ItemGroup>
+        <ProjectReference Include="..\PermitQL\PermitQL.csproj" />
+        <ProjectReference Include="..\PermitQL.Server\PermitQL.Server.csproj" />
+    </ItemGroup>
+</Project>

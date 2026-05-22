@@ -1,0 +1,104 @@
+namespace PermitQL.Tests;
+
+using PermitQL.Abstractions;
+using PermitQL.Exceptions;
+using PermitQL.Models;
+using NSubstitute;
+
+public class QueryPipelineTests
+{
+    private readonly IRulesProvider _rulesProvider = Substitute.For<IRulesProvider>();
+    private readonly ISqlAstProvider _astProvider = Substitute.For<ISqlAstProvider>();
+    private readonly IQueryValidator _validator = Substitute.For<IQueryValidator>();
+    private readonly IQueryRewriter _rewriter = Substitute.For<IQueryRewriter>();
+    private readonly IDataAccessor _dataAccessor = Substitute.For<IDataAccessor>();
+
+    private QueryPipeline CreatePipeline() => new(
+        _rulesProvider, _astProvider, _validator, _rewriter, _dataAccessor);
+
+    private static RuleSet MakeRules() => new()
+    {
+        Version = "1.0", Database = "test",
+        GlobalLimits = new GlobalLimits { MaxRowsReturned = 100, TimeoutMs = 5000, AllowedOperations = ["select"] },
+        ExposedSchemas = new Dictionary<string, SchemaRule>(),
+    };
+
+    private static ParsedQuery MakeParsedQuery()
+    {
+        var parser = new PermitQL.Parsing.SqlAstProvider();
+        return parser.GetOrParse("SELECT 1");
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_HappyPath_ReturnsQueryResult()
+    {
+        var rules = MakeRules();
+        var parsed = MakeParsedQuery();
+        _rulesProvider.GetRuleSet("test").Returns(rules);
+        _astProvider.GetOrParse("SELECT 1").Returns(parsed);
+        _validator.ValidateAsync(parsed, rules, Arg.Any<CancellationToken>())
+                  .Returns(new ValidationResult(ValidationResultType.Valid, null));
+        _rewriter.RewriteAsync(parsed, rules, Arg.Any<CancellationToken>())
+                 .Returns("SELECT 1 LIMIT 100");
+        _dataAccessor.GetColumnDefinitionAsync("SELECT 1 LIMIT 100", Arg.Any<CancellationToken>())
+                     .Returns(new List<ColumnDefinition> { new(0, "col", "integer", false) });
+        _dataAccessor.QueryAsync("SELECT 1 LIMIT 100", Arg.Any<CancellationToken>())
+                     .Returns(ToAsyncEnumerable(new object?[] { 1 }));
+        var pipeline = CreatePipeline();
+        var result = await pipeline.ExecuteAsync("SELECT 1", "test");
+        Assert.Single(result.Columns);
+        Assert.Single(result.Rows);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_ValidationFails_ThrowsQueryValidationFailedException()
+    {
+        var rules = MakeRules();
+        var parsed = MakeParsedQuery();
+        _rulesProvider.GetRuleSet("test").Returns(rules);
+        _astProvider.GetOrParse("SELECT 1").Returns(parsed);
+        _validator.ValidateAsync(parsed, rules, Arg.Any<CancellationToken>())
+                  .Returns(new ValidationResult(ValidationResultType.Invalid, "not allowed"));
+        var pipeline = CreatePipeline();
+        var ex = await Assert.ThrowsAsync<QueryValidationFailedException>(
+            () => pipeline.ExecuteAsync("SELECT 1", "test"));
+        Assert.Contains("not allowed", ex.Message);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_Timeout_ThrowsOperationCanceledException()
+    {
+        var rules = new RuleSet
+        {
+            Version = "1.0", Database = "test",
+            GlobalLimits = new GlobalLimits { MaxRowsReturned = 100, TimeoutMs = 1, AllowedOperations = ["select"] },
+            ExposedSchemas = new Dictionary<string, SchemaRule>(),
+        };
+        var parsed = MakeParsedQuery();
+        _rulesProvider.GetRuleSet("test").Returns(rules);
+        _astProvider.GetOrParse("SELECT 1").Returns(parsed);
+        _validator.ValidateAsync(parsed, rules, Arg.Any<CancellationToken>())
+                  .Returns(new ValidationResult(ValidationResultType.Valid, null));
+        _rewriter.RewriteAsync(parsed, rules, Arg.Any<CancellationToken>())
+                 .Returns("SELECT 1");
+        _dataAccessor.GetColumnDefinitionAsync("SELECT 1", Arg.Any<CancellationToken>())
+                     .Returns(call => new ValueTask<IReadOnlyList<ColumnDefinition>>(
+                         Task.Run(async () =>
+                         {
+                             await Task.Delay(5000, call.Arg<CancellationToken>());
+                             return (IReadOnlyList<ColumnDefinition>)new List<ColumnDefinition>();
+                         }, call.Arg<CancellationToken>())));
+        var pipeline = CreatePipeline();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            () => pipeline.ExecuteAsync("SELECT 1", "test"));
+    }
+
+    private static async IAsyncEnumerable<object?[]> ToAsyncEnumerable(params object?[][] rows)
+    {
+        foreach (var row in rows)
+        {
+            await Task.CompletedTask;
+            yield return row;
+        }
+    }
+}

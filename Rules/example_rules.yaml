@@ -1,0 +1,45 @@
+version: "1.0"
+database: "mydb"
+global_limits:
+  max_rows_returned: 100
+  timeout_ms: 5000
+  allowed_operations: [select] # supported: select, insert, update, delete
+
+exposed_schemas:
+  public:
+    tables:
+      countries:
+        allowed_columns: ["*"] # country_id, country_name, region_id
+        # denied_columns: []    # excludes columns when allowed_columns is ["*"]
+        # row_filter: ""        # SQL predicate injected into WHERE/ON clauses
+        # allowed_operations: [] # overrides global; supported: select, insert, update, delete
+      departments:
+        allowed_columns: ["*"] # department_id, department_name, manager_id, location_id
+        # denied_columns: []    # excludes columns when allowed_columns is ["*"]
+        # row_filter: ""        # SQL predicate injected into WHERE/ON clauses
+        # allowed_operations: [] # overrides global; supported: select, insert, update, delete
+      employees:
+        allowed_columns: ["*"] # employee_id, first_name, last_name, email, phone_number, hire_date, job_id, salary, commission_pct, manager_id, department_id
+        # denied_columns: []    # excludes columns when allowed_columns is ["*"]
+        # row_filter: ""        # SQL predicate injected into WHERE/ON clauses
+        # allowed_operations: [] # overrides global; supported: select, insert, update, delete
+      job_history:
+        allowed_columns: ["*"] # employee_id, start_date, end_date, job_id, department_id
+        # denied_columns: []    # excludes columns when allowed_columns is ["*"]
+        # row_filter: ""        # SQL predicate injected into WHERE/ON clauses
+        # allowed_operations: [] # overrides global; supported: select, insert, update, delete
+      jobs:
+        allowed_columns: ["*"] # job_id, job_title, min_salary, max_salary
+        # denied_columns: []    # excludes columns when allowed_columns is ["*"]
+        # row_filter: ""        # SQL predicate injected into WHERE/ON clauses
+        # allowed_operations: [] # overrides global; supported: select, insert, update, delete
+      locations:
+        allowed_columns: ["*"] # location_id, street_address, postal_code, city, state_province, country_id
+        # denied_columns: []    # excludes columns when allowed_columns is ["*"]
+        # row_filter: ""        # SQL predicate injected into WHERE/ON clauses
+        # allowed_operations: [] # overrides global; supported: select, insert, update, delete
+      regions:
+        allowed_columns: ["*"] # region_id, region_name
+        # denied_columns: []    # excludes columns when allowed_columns is ["*"]
+        # row_filter: ""        # SQL predicate injected into WHERE/ON clauses
+        # allowed_operations: [] # overrides global; supported: select, insert, update, delete

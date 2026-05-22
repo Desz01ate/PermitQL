@@ -1,0 +1,17 @@
+PermitQL License Notice
+=======================
+
+SPDX-License-Identifier: AGPL-3.0-or-later
+
+Copyright (C) 2026 PermitQL contributors
+
+This repository is licensed under the GNU Affero General Public License,
+version 3 or later. You may redistribute and/or modify it under the terms of
+that license.
+
+This repository is distributed in the hope that it will be useful, but WITHOUT
+ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+FOR A PARTICULAR PURPOSE.
+
+You should have received a copy of the GNU Affero General Public License along
+with this repository. If not, see <https://www.gnu.org/licenses/>.
