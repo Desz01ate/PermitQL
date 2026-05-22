@@ -23,13 +23,6 @@ public sealed class YamlRulesProvider : IRulesProvider
             var ruleSet = deserializer.Deserialize<RuleSet>(yaml);
             _ruleSets[ruleSet.Database] = ruleSet;
         }
-
-        foreach (var file in Directory.EnumerateFiles(rulesDirectory, "*.yml"))
-        {
-            var yaml = File.ReadAllText(file);
-            var ruleSet = deserializer.Deserialize<RuleSet>(yaml);
-            _ruleSets[ruleSet.Database] = ruleSet;
-        }
     }
 
     public RuleSet GetRuleSet(string key)
