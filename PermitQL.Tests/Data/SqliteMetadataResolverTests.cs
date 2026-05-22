@@ -1,7 +1,7 @@
 namespace PermitQL.Tests.Data;
 
-using PermitQL.Server.Implementations.MetadataResolvers;
 using Microsoft.Data.Sqlite;
+using PermitQL.Data.Resolvers;
 
 public sealed class SqliteMetadataResolverTests
 {

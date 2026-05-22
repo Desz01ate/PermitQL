@@ -1,8 +1,8 @@
-namespace PermitQL.Server.Implementations.MetadataResolvers;
+namespace PermitQL.Data.Resolvers;
 
 using System.Data.Common;
-using PermitQL.Abstractions;
-using PermitQL.Models;
+using Abstractions;
+using Models;
 
 public sealed class SqliteRelationshipResolver : IRelationshipResolver
 {
@@ -80,7 +80,9 @@ public sealed class SqliteRelationshipResolver : IRelationshipResolver
                 var referencedTable = fkReader.GetString(2);
 
                 if (!string.Equals(referencedTable, table, StringComparison.OrdinalIgnoreCase))
+                {
                     continue;
+                }
 
                 var fromColumn = fkReader.GetString(3);
                 var toColumn = fkReader.GetString(4);

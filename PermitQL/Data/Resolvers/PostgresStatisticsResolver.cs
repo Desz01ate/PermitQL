@@ -1,17 +1,23 @@
-namespace PermitQL.Server.Implementations.MetadataResolvers;
+namespace PermitQL.Data.Resolvers;
 
 using System.Data.Common;
-using PermitQL.Abstractions;
-using PermitQL.Models;
+using Abstractions;
+using Models;
 
 public sealed class PostgresStatisticsResolver : IStatisticsResolver
 {
-    private const string Query = """
-        SELECT c.reltuples
-        FROM pg_class c
-        JOIN pg_namespace n ON n.oid = c.relnamespace
-        WHERE n.nspname = @schema AND c.relname = @table
-        """;
+    private const string Query
+        = """
+          SELECT
+              s.n_live_tup,
+              GREATEST(
+                  COALESCE(s.last_analyze, '-infinity'),
+                  COALESCE(s.last_autoanalyze, '-infinity')
+              ) AS last_analyzed_at
+          FROM pg_stat_all_tables s
+          WHERE s.schemaname = @schema
+            AND s.relname = @table
+          """;
 
     public async ValueTask<TableStatisticsMetadata> ResolveAsync(
         DbConnection connection,
@@ -36,9 +42,15 @@ public sealed class PostgresStatisticsResolver : IStatisticsResolver
 
         if (await reader.ReadAsync(cancellationToken))
         {
-            var reltuples = reader.GetFloat(0);
-            var rowCount = reltuples < 0 ? null : (long?)Convert.ToInt64(reltuples);
-            return new TableStatisticsMetadata(rowCount, null);
+            long? rowCount = reader.IsDBNull(0)
+                ? null
+                : reader.GetInt64(0);
+
+            DateTimeOffset? lastAnalyzed = reader.IsDBNull(1)
+                ? null
+                : reader.GetFieldValue<DateTimeOffset>(1);
+
+            return new TableStatisticsMetadata(rowCount, lastAnalyzed);
         }
 
         return new TableStatisticsMetadata(null, null);

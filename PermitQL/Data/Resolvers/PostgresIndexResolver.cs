@@ -1,8 +1,8 @@
-namespace PermitQL.Server.Implementations.MetadataResolvers;
+namespace PermitQL.Data.Resolvers;
 
 using System.Data.Common;
-using PermitQL.Abstractions;
-using PermitQL.Models;
+using Abstractions;
+using Models;
 
 public sealed class PostgresIndexResolver : IIndexResolver
 {

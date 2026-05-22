@@ -1,8 +1,8 @@
-namespace PermitQL.Server.Implementations.MetadataResolvers;
+namespace PermitQL.Data.Resolvers;
 
 using System.Data.Common;
-using PermitQL.Abstractions;
-using PermitQL.Models;
+using Abstractions;
+using Models;
 
 public sealed class SqliteIndexResolver : IIndexResolver
 {
@@ -25,9 +25,10 @@ public sealed class SqliteIndexResolver : IIndexResolver
                 var isUnique = listReader.GetInt64(2) == 1;
                 var origin = listReader.GetString(3);
 
-                // Skip auto-created indexes for primary keys
                 if (origin == "pk")
+                {
                     continue;
+                }
 
                 indexEntries.Add((name, isUnique));
             }

@@ -2,7 +2,7 @@ namespace PermitQL.Tests.Data;
 
 using System.Data;
 using System.Data.Common;
-using PermitQL.Server.Implementations.MetadataResolvers;
+using PermitQL.Data.Resolvers;
 using NSubstitute;
 
 public sealed class PostgresMetadataResolverTests

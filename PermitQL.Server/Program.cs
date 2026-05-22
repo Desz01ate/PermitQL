@@ -26,8 +26,8 @@ async Task<int> RunServeAsync(ServeOptions serve)
     var options = StartupBootstrap.LoadOptions(allowMissingAppSettings: serve.Stdio);
     var rulesDirectory = StartupBootstrap.ResolveRulesDirectory(StartupBootstrap.BasePath, options.RulesDirectory);
     var connectionFactory = ConnectionFactory.Create(options.Provider, options.ConnectionString);
-    var metadataResolvers = ProviderMetadataResolverFactory.Create(options.Provider);
     var validatorCapabilities = new ValidatorCapabilityDescriptor();
+    var factory = new PermitQLFactory(options.Provider);
 
     if (serve.Stdio)
     {
@@ -38,9 +38,7 @@ async Task<int> RunServeAsync(ServeOptions serve)
         });
         builder.Logging.ClearProviders();
         builder.Services.AddSingleton(validatorCapabilities);
-        builder.Services.AddPermitQL(rulesDirectory, connectionFactory, options.Provider,
-            metadataResolvers.Constraints, metadataResolvers.Relationships,
-            metadataResolvers.Indexes, metadataResolvers.Statistics, metadataResolvers.Capabilities);
+        builder.Services.AddPermitQL(rulesDirectory, connectionFactory, factory);
         builder.Services
                .AddMcpServer()
                .WithStdioServerTransport()
@@ -55,9 +53,7 @@ async Task<int> RunServeAsync(ServeOptions serve)
             ContentRootPath = StartupBootstrap.BasePath,
         });
         builder.Services.AddSingleton(validatorCapabilities);
-        builder.Services.AddPermitQL(rulesDirectory, connectionFactory, options.Provider,
-            metadataResolvers.Constraints, metadataResolvers.Relationships,
-            metadataResolvers.Indexes, metadataResolvers.Statistics, metadataResolvers.Capabilities);
+        builder.Services.AddPermitQL(rulesDirectory, connectionFactory, factory);
         builder.Services
                .AddMcpServer()
                .WithHttpTransport()
