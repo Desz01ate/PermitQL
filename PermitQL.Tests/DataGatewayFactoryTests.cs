@@ -56,14 +56,13 @@ public class PermitQLFactoryTests
     }
 
     [Fact]
-    public void CreateDataAccessor_ForUnsupportedMetadataDialect_Throws()
+    public void CreateDataAccessor_ForSqlServer_ReturnsAccessorWithNullResolvers()
     {
         var factory = new PermitQLFactory(SqlDialect.SqlServer);
 
-        var ex = Assert.Throws<ArgumentOutOfRangeException>(
-            () => factory.CreateDataAccessor(() => Substitute.For<DbConnection>()));
+        var accessor = factory.CreateDataAccessor(() => Substitute.For<DbConnection>());
 
-        Assert.Contains("metadata", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.IsType<AdoNetDataAccessor>(accessor);
     }
 
     [Fact]

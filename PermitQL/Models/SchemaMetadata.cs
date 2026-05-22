@@ -46,7 +46,18 @@ public sealed record ForeignKeyMetadata(
 
 public sealed record TableIndexMetadata(string Name, IReadOnlyList<string> Columns, bool IsUnique);
 
-public sealed record TableStatisticsMetadata(long? ApproximateRowCount, DateTimeOffset? LastAnalyzed);
+public sealed record ColumnStatisticsMetadata(
+    double? NullFraction,
+    long? ApproximateDistinctCount,
+    IReadOnlyList<string>? MostCommonValues,
+    IReadOnlyList<double>? MostCommonFrequencies,
+    string? MinValue,
+    string? MaxValue);
+
+public sealed record TableStatisticsMetadata(
+    long? ApproximateRowCount,
+    DateTimeOffset? LastAnalyzed,
+    IReadOnlyDictionary<string, ColumnStatisticsMetadata>? ColumnStatistics = null);
 
 public sealed record QueryCapabilityMetadata(
     CapabilitySupport Ctes,
