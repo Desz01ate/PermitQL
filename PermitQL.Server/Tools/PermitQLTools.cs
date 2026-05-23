@@ -3,7 +3,6 @@ namespace PermitQL.Server.Tools;
 using System.ComponentModel;
 using System.Text;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using PermitQL.Abstractions;
 using PermitQL.Models;
@@ -16,7 +15,7 @@ public static partial class PermitQLTools
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         WriteIndented = true,
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+        // DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
     };
 
     [GeneratedRegex(@"^[a-zA-Z_][a-zA-Z0-9_]*$")]

@@ -119,7 +119,7 @@ public static class StartupBootstrap
 {
     public static string BasePath => AppContext.BaseDirectory;
 
-    private const string ConfigJsonEnvironmentVariable = "DATAGATEWAY_CONFIG_JSON";
+    private const string ConfigJsonEnvironmentVariable = "PERMITQL_CONFIG_JSON";
 
     public static PermitQLOptions LoadOptions(bool allowMissingAppSettings, string? basePath = null)
     {

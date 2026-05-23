@@ -129,4 +129,35 @@ public class YamlRulesProviderTests : IDisposable
         Assert.Equal(["select"], ruleSet.ExposedSchemas["public"].Tables["products"].AllowedOperations!);
         Assert.Null(ruleSet.ExposedSchemas["public"].Tables["orders"].AllowedOperations);
     }
+
+    [Fact]
+    public void GetRuleSet_LoadsTableAndColumnSemanticDescriptions()
+    {
+        WriteRuleFile("app.yaml", """
+                                  version: "1.0"
+                                  database: "application"
+                                  global_limits:
+                                    max_rows_returned: 100
+                                    timeout_ms: 1000
+                                    allowed_operations: [select]
+                                  exposed_schemas:
+                                    public:
+                                      tables:
+                                        products:
+                                          allowed_columns: ["id", "name"]
+                                          table_semantic_description: "Products available for sale"
+                                          column_semantic_descriptions:
+                                            id: "Product identifier"
+                                            name: "Product display name"
+                                  """);
+
+        var provider = new YamlRulesProvider(_tempDir);
+        var ruleSet = provider.GetRuleSet("application");
+        var tableRule = ruleSet.ExposedSchemas["public"].Tables["products"];
+
+        Assert.Equal("Products available for sale", tableRule.TableSemanticDescription);
+        Assert.Equal("Product identifier", tableRule.ColumnSemanticDescriptions["id"]);
+        Assert.Equal("Product display name", tableRule.ColumnSemanticDescriptions["name"]);
+        Assert.Equal(2, tableRule.ColumnSemanticDescriptions.Count);
+    }
 }
