@@ -20,6 +20,14 @@ public sealed class QueryValidator : IQueryValidator
                 "Statement type is not supported. Only SELECT, INSERT, UPDATE, and DELETE are allowed."));
         }
 
+        // 1b. Reject tableless SELECT queries (e.g. SELECT pg_sleep(10))
+        if (query is { StatementType: StatementKind.Select, ReferencedTables.Count: 0 })
+        {
+            return new ValueTask<ValidationResult>(new ValidationResult(
+                ValidationResultType.Invalid,
+                "Tableless queries are not allowed. Direct function calls are not permitted."));
+        }
+
         // 2. Table access check — also builds alias map for column validation
         var aliasMap = BuildAliasMap(query);
         var (resolvedTables, tableCheck) = ValidateTableAccess(query, rules);
@@ -42,8 +50,8 @@ public sealed class QueryValidator : IQueryValidator
                 return new ValueTask<ValidationResult>(mutationCheck);
         }
 
-        // 5. Column access check (SELECT only)
-        if (query.StatementType == StatementKind.Select)
+        // 5. Column access check
+        if (query.ReferencedColumns.Count > 0)
         {
             var columnCheck = ValidateColumnAccess(query, rules, resolvedTables, aliasMap);
             if (columnCheck is not null)

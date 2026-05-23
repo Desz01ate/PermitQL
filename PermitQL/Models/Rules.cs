@@ -8,6 +8,8 @@ public class RuleSet
 
     public required GlobalLimits GlobalLimits { get; init; }
 
+    public required bool ExposeDetailedErrors { get; init; } = false;
+
     public required Dictionary<string, SchemaRule> ExposedSchemas { get; init; }
 }
 

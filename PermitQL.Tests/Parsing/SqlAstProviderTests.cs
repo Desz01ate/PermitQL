@@ -79,6 +79,13 @@ public class SqlAstProviderTests
     }
 
     [Fact]
+    public void GetOrParse_MultipleStatements_Throws()
+    {
+        Assert.Throws<SqlParseException>(
+            () => this._provider.GetOrParse("SELECT * FROM products; DELETE FROM orders;"));
+    }
+
+    [Fact]
     public void GetOrParse_WhereClauseColumns_ExtractsReferencedColumns()
     {
         var result = this._provider.GetOrParse("SELECT id FROM products WHERE price > 100");

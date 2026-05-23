@@ -26,34 +26,51 @@ public sealed class QueryPipeline : IQueryPipeline
         this._dataAccessor = dataAccessor;
     }
 
-    public async Task<QueryResult> ExecuteAsync(
+    public async Task<Result<QueryResult, Exception>> ExecuteAsync(
         string query,
         string ruleSetKey,
         CancellationToken cancellationToken = default)
     {
-        var rules = this._rulesProvider.GetRuleSet(ruleSetKey);
-        var parsed = this._astProvider.GetOrParse(query);
-        var validation = await this._validator.ValidateAsync(parsed, rules, cancellationToken);
-
-        if (validation.Type is ValidationResultType.Invalid)
+        RuleSet? rules = null;
+        try
         {
-            throw new QueryValidationFailedException(validation.Message ?? "Query validation failed.");
+            rules = this._rulesProvider.GetRuleSet(ruleSetKey);
+            var parsed = this._astProvider.GetOrParse(query);
+            var validation = await this._validator.ValidateAsync(parsed, rules, cancellationToken);
+
+            if (validation.Type is ValidationResultType.Invalid)
+            {
+                throw new QueryValidationFailedException(validation.Message ?? "Query validation failed.");
+            }
+
+            using var timeoutCts = new CancellationTokenSource(rules.GlobalLimits.TimeoutMs);
+            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);
+            var ct = linkedCts.Token;
+
+            var rewrittenSql = await this._rewriter.RewriteAsync(parsed, rules, ct);
+
+            var columns = await this._dataAccessor.GetColumnDefinitionAsync(rewrittenSql, ct);
+            var rows = new List<object?[]>();
+
+            await foreach (var row in this._dataAccessor.QueryAsync(rewrittenSql, ct))
+            {
+                rows.Add(row);
+            }
+
+            return new QueryResult(columns, rows);
         }
-
-        using var timeoutCts = new CancellationTokenSource(rules.GlobalLimits.TimeoutMs);
-        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);
-        var ct = linkedCts.Token;
-
-        var rewrittenSql = await this._rewriter.RewriteAsync(parsed, rules, ct);
-
-        var columns = await this._dataAccessor.GetColumnDefinitionAsync(rewrittenSql, ct);
-        var rows = new List<object?[]>();
-
-        await foreach (var row in this._dataAccessor.QueryAsync(rewrittenSql, ct))
+        catch (Exception e)
         {
-            rows.Add(row);
-        }
+            if (rules is not null && !rules.ExposeDetailedErrors
+                && e is not QueryValidationFailedException
+                && e is not AmbiguousTableException
+                && e is not SqlParseException
+                && e is not OperationCanceledException)
+            {
+                return new Exception("Query execution failed.");
+            }
 
-        return new QueryResult(columns, rows);
+            return e;
+        }
     }
 }

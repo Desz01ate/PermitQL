@@ -70,22 +70,25 @@ async Task<int> RunServeAsync(ServeOptions serve)
 
         app.MapPost(
             "/api/databases/{ruleSetKey}/query",
-            static async (string ruleSetKey, QueryRequest request, IQueryPipeline pipeline, CancellationToken ct) =>
+            static async (string ruleSetKey, QueryRequest request, IRulesProvider rulesProvider, IQueryPipeline pipeline, CancellationToken ct) =>
             {
-                try
-                {
-                    var result = await pipeline.ExecuteAsync(request.Query, ruleSetKey, ct);
-                    var response = new QueryResponse(
-                        result.Columns.Select(c => new ColumnInfo(c.Name, c.Type, c.IsNullable)).ToList(),
-                        result.Rows,
-                        result.Rows.Count);
-                    return Results.Ok(response);
-                }
-                catch (Exception ex)
-                {
-                    var (message, type, statusCode) = ErrorHandler.Classify(ex);
-                    return Results.Json(new ErrorResponse(message, type), statusCode: statusCode);
-                }
+                var result = await pipeline.ExecuteAsync(request.Query, ruleSetKey, ct);
+
+                return result.Match(
+                    static succ =>
+                    {
+                        var response = new QueryResponse(
+                            succ.Columns.Select(c => new ColumnInfo(c.Name, c.Type, c.IsNullable)).ToList(),
+                            succ.Rows,
+                            succ.Rows.Count);
+                        return Results.Ok(response);
+                    },
+                    err =>
+                    {
+                        var ruleSet = rulesProvider.GetRuleSet(ruleSetKey);
+                        var (message, type, statusCode) = ErrorHandler.Classify(err, ruleSet);
+                        return Results.Json(new ErrorResponse(message, type), statusCode: statusCode);
+                    });
             });
 
         app.MapGet(
@@ -110,7 +113,8 @@ async Task<int> RunServeAsync(ServeOptions serve)
                 }
                 catch (Exception ex)
                 {
-                    var (message, type, statusCode) = ErrorHandler.Classify(ex);
+                    var ruleSet = rulesProvider.GetRuleSet(key);
+                    var (message, type, statusCode) = ErrorHandler.Classify(ex, ruleSet);
                     return Results.Json(new ErrorResponse(message, type), statusCode: statusCode);
                 }
             });

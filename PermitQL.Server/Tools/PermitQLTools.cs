@@ -25,6 +25,7 @@ public static partial class PermitQLTools
      Description(
          "Execute a SQL query against a governed database. The query is validated against access rules and rewritten to enforce row filters and limits before execution.")]
     public static async Task<string> Query(
+        IRulesProvider rulesProvider,
         IQueryPipeline pipeline,
         [Description("The SQL SELECT query to execute")]
         string query,
@@ -34,19 +35,19 @@ public static partial class PermitQLTools
         string format = "json",
         CancellationToken cancellationToken = default)
     {
-        try
-        {
-            var result = await pipeline.ExecuteAsync(query, ruleSetKey, cancellationToken);
+        var result = await pipeline.ExecuteAsync(query, ruleSetKey, cancellationToken);
 
-            return format.Equals("json", StringComparison.OrdinalIgnoreCase)
-                ? FormatAsJson(result)
-                : FormatAsMarkdown(result);
-        }
-        catch (Exception ex)
-        {
-            var (message, type, _) = ErrorHandler.Classify(ex);
-            return $"Error ({type}): {message}";
-        }
+        return result.Match(
+            succ =>
+                format.Equals("json", StringComparison.OrdinalIgnoreCase)
+                    ? FormatAsJson(succ)
+                    : FormatAsMarkdown(succ),
+            err =>
+            {
+                var ruleSet = rulesProvider.GetRuleSet(ruleSetKey);
+                var (message, type, _) = ErrorHandler.Classify(err, ruleSet);
+                return $"Error ({type}): {message}";
+            });
     }
 
     [McpServerTool(Name = "list_databases"),
@@ -129,7 +130,8 @@ public static partial class PermitQLTools
         }
         catch (Exception ex)
         {
-            var (message, type, _) = ErrorHandler.Classify(ex);
+            var ruleSet = rulesProvider.GetRuleSet(ruleSetKey);
+            var (message, type, _) = ErrorHandler.Classify(ex, ruleSet);
             return $"Error ({type}): {message}";
         }
     }

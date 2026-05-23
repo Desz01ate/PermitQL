@@ -19,6 +19,7 @@ public class QueryPipelineTests
     {
         Version = "1.0", Database = "test",
         GlobalLimits = new GlobalLimits { MaxRowsReturned = 100, TimeoutMs = 5000, AllowedOperations = ["select"] },
+        ExposeDetailedErrors = false,
         ExposedSchemas = new Dictionary<string, SchemaRule>(),
     };
 
@@ -45,8 +46,9 @@ public class QueryPipelineTests
             .Returns(ToAsyncEnumerable(new object?[] { 1 }));
         var pipeline = this.CreatePipeline();
         var result = await pipeline.ExecuteAsync("SELECT 1", "test");
-        Assert.Single(result.Columns);
-        Assert.Single(result.Rows);
+        Assert.NotNull(result.Success);
+        Assert.Single(result.Success.Columns);
+        Assert.Single(result.Success.Rows);
     }
 
     [Fact]
@@ -59,18 +61,21 @@ public class QueryPipelineTests
         this._validator.ValidateAsync(parsed, rules, Arg.Any<CancellationToken>())
             .Returns(new ValidationResult(ValidationResultType.Invalid, "not allowed"));
         var pipeline = this.CreatePipeline();
-        var ex = await Assert.ThrowsAsync<QueryValidationFailedException>(
-            () => pipeline.ExecuteAsync("SELECT 1", "test"));
-        Assert.Contains("not allowed", ex.Message);
+        var result = await pipeline.ExecuteAsync("SELECT 1", "test");
+        Assert.Null(result.Success);
+        Assert.NotNull(result.Error);
+        Assert.IsType<QueryValidationFailedException>(result.Error);
+        Assert.Contains("not allowed", result.Error.Message);
     }
 
     [Fact]
-    public async Task ExecuteAsync_Timeout_ThrowsOperationCanceledException()
+    public async Task ExecuteAsync_Timeout_ThrowsTaskCanceledException()
     {
         var rules = new RuleSet
         {
             Version = "1.0", Database = "test",
             GlobalLimits = new GlobalLimits { MaxRowsReturned = 100, TimeoutMs = 1, AllowedOperations = ["select"] },
+            ExposeDetailedErrors = false,
             ExposedSchemas = new Dictionary<string, SchemaRule>(),
         };
         var parsed = MakeParsedQuery();
@@ -88,8 +93,10 @@ public class QueryPipelineTests
                     return (IReadOnlyList<ColumnDefinition>)new List<ColumnDefinition>();
                 }, call.Arg<CancellationToken>())));
         var pipeline = this.CreatePipeline();
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(
-            () => pipeline.ExecuteAsync("SELECT 1", "test"));
+        var result = await pipeline.ExecuteAsync("SELECT 1", "test");
+        Assert.Null(result.Success);
+        Assert.NotNull(result.Error);
+        Assert.IsType<TaskCanceledException>(result.Error);
     }
 
     private static async IAsyncEnumerable<object?[]> ToAsyncEnumerable(params object?[][] rows)

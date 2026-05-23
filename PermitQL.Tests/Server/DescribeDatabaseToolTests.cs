@@ -35,6 +35,7 @@ public sealed class DescribeDatabaseToolTests
                 TimeoutMs = timeoutMs,
                 AllowedOperations = globalOps ?? ["select"],
             },
+            ExposeDetailedErrors = false,
             ExposedSchemas = schemas ?? new Dictionary<string, SchemaRule>(),
         };
     }

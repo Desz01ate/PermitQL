@@ -23,6 +23,7 @@ public class QueryValidatorTests
                 TimeoutMs = 1000,
                 AllowedOperations = allowedOperations ?? ["select"],
             },
+            ExposeDetailedErrors = false,
             ExposedSchemas = schemas ?? new Dictionary<string, SchemaRule>
             {
                 ["public"] = new SchemaRule
@@ -87,6 +88,15 @@ public class QueryValidatorTests
     }
 
     [Fact]
+    public async Task TablelessFunctionCall_ReturnsInvalid()
+    {
+        var parsed = this._astProvider.GetOrParse("SELECT pg_sleep(10)");
+        var result = await this._validator.ValidateAsync(parsed, MakeRules());
+        Assert.Equal(ValidationResultType.Invalid, result.Type);
+        Assert.Contains("function", result.Message!, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task JoinWithAllowedTables_ReturnsValid()
     {
         var parsed = this._astProvider.GetOrParse(
@@ -106,12 +116,33 @@ public class QueryValidatorTests
     }
 
     [Fact]
+    public async Task SubqueryWithUnknownTable_ReturnsInvalid()
+    {
+        var parsed = this._astProvider.GetOrParse(
+            "SELECT id FROM products WHERE id IN (SELECT product_id FROM secrets)");
+        var result = await this._validator.ValidateAsync(parsed, MakeRules());
+        Assert.Equal(ValidationResultType.Invalid, result.Type);
+        Assert.Contains("secrets", result.Message!);
+    }
+
+    [Fact]
+    public async Task DerivedTableWithUnknownTable_ReturnsInvalid()
+    {
+        var parsed = this._astProvider.GetOrParse(
+            "SELECT * FROM (SELECT id FROM secrets) s");
+        var result = await this._validator.ValidateAsync(parsed, MakeRules());
+        Assert.Equal(ValidationResultType.Invalid, result.Type);
+        Assert.Contains("secrets", result.Message!);
+    }
+
+    [Fact]
     public async Task WildcardColumns_DeniedColumnInSelect_ReturnsInvalid()
     {
         var rules = new RuleSet
         {
             Version = "1.0", Database = "test",
             GlobalLimits = new GlobalLimits { MaxRowsReturned = 100, TimeoutMs = 1000, AllowedOperations = ["select"] },
+            ExposeDetailedErrors = false,
             ExposedSchemas = new Dictionary<string, SchemaRule>
             {
                 ["public"] = new SchemaRule
@@ -136,6 +167,7 @@ public class QueryValidatorTests
         {
             Version = "1.0", Database = "test",
             GlobalLimits = new GlobalLimits { MaxRowsReturned = 100, TimeoutMs = 1000, AllowedOperations = ["select"] },
+            ExposeDetailedErrors = false,
             ExposedSchemas = new Dictionary<string, SchemaRule>
             {
                 ["public"] = new SchemaRule
@@ -176,6 +208,7 @@ public class QueryValidatorTests
         {
             Version = "1.0", Database = "test",
             GlobalLimits = new GlobalLimits { MaxRowsReturned = 100, TimeoutMs = 1000, AllowedOperations = ["select"] },
+            ExposeDetailedErrors = false,
             ExposedSchemas = new Dictionary<string, SchemaRule>
             {
                 ["public"] = new SchemaRule
@@ -206,6 +239,7 @@ public class QueryValidatorTests
         {
             Version = "1.0", Database = "test",
             GlobalLimits = new GlobalLimits { MaxRowsReturned = 100, TimeoutMs = 1000, AllowedOperations = ["select"] },
+            ExposeDetailedErrors = false,
             ExposedSchemas = new Dictionary<string, SchemaRule>
             {
                 ["public"] = new SchemaRule
@@ -231,6 +265,7 @@ public class QueryValidatorTests
         {
             Version = "1.0", Database = "test",
             GlobalLimits = new GlobalLimits { MaxRowsReturned = 100, TimeoutMs = 1000, AllowedOperations = ["select"] },
+            ExposeDetailedErrors = false,
             ExposedSchemas = new Dictionary<string, SchemaRule>
             {
                 ["public"] = new SchemaRule
@@ -286,6 +321,7 @@ public class QueryValidatorTests
         {
             Version = "1.0", Database = "test",
             GlobalLimits = new GlobalLimits { MaxRowsReturned = 100, TimeoutMs = 1000, AllowedOperations = ["select", "insert", "update", "delete"] },
+            ExposeDetailedErrors = false,
             ExposedSchemas = new Dictionary<string, SchemaRule>
             {
                 ["public"] = new SchemaRule
@@ -315,6 +351,7 @@ public class QueryValidatorTests
         {
             Version = "1.0", Database = "test",
             GlobalLimits = new GlobalLimits { MaxRowsReturned = 100, TimeoutMs = 1000, AllowedOperations = ["select"] },
+            ExposeDetailedErrors = false,
             ExposedSchemas = new Dictionary<string, SchemaRule>
             {
                 ["public"] = new SchemaRule
@@ -342,6 +379,7 @@ public class QueryValidatorTests
         {
             Version = "1.0", Database = "test",
             GlobalLimits = new GlobalLimits { MaxRowsReturned = 100, TimeoutMs = 1000, AllowedOperations = ["select", "insert", "update", "delete"] },
+            ExposeDetailedErrors = false,
             ExposedSchemas = new Dictionary<string, SchemaRule>
             {
                 ["public"] = new SchemaRule
@@ -378,6 +416,7 @@ public class QueryValidatorTests
         {
             Version = "1.0", Database = "test",
             GlobalLimits = new GlobalLimits { MaxRowsReturned = 100, TimeoutMs = 1000, AllowedOperations = ["select"] },
+            ExposeDetailedErrors = false,
             ExposedSchemas = new Dictionary<string, SchemaRule>
             {
                 ["public"] = new SchemaRule
@@ -414,6 +453,7 @@ public class QueryValidatorTests
         {
             Version = "1.0", Database = "test",
             GlobalLimits = new GlobalLimits { MaxRowsReturned = 100, TimeoutMs = 1000, AllowedOperations = ["select", "insert"] },
+            ExposeDetailedErrors = false,
             ExposedSchemas = new Dictionary<string, SchemaRule>
             {
                 ["public"] = new SchemaRule
@@ -433,6 +473,25 @@ public class QueryValidatorTests
         var deleteParsed = this._astProvider.GetOrParse("DELETE FROM products WHERE id = 1");
         var deleteResult = await this._validator.ValidateAsync(deleteParsed, rules);
         Assert.Equal(ValidationResultType.Invalid, deleteResult.Type);
+    }
+
+    [Fact]
+    public async Task UpdateDisallowedColumn_ReturnsInvalid()
+    {
+        var parsed = this._astProvider.GetOrParse("UPDATE products SET secret_field = 'x' WHERE id = 1");
+        var result = await this._validator.ValidateAsync(parsed, MakeRules(allowedOperations: ["select", "update"]));
+        Assert.Equal(ValidationResultType.Invalid, result.Type);
+        Assert.Contains("secret_field", result.Message!);
+    }
+
+    [Fact]
+    public async Task InsertSelectWithUnknownSourceTable_ReturnsInvalid()
+    {
+        var parsed = this._astProvider.GetOrParse(
+            "INSERT INTO products (id, name) SELECT id, name FROM secrets");
+        var result = await this._validator.ValidateAsync(parsed, MakeRules(allowedOperations: ["select", "insert"]));
+        Assert.Equal(ValidationResultType.Invalid, result.Type);
+        Assert.Contains("secrets", result.Message!);
     }
 
     // --- CTE validation tests ---

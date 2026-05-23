@@ -27,6 +27,7 @@ public class TopQueryRewriterTests
                 TimeoutMs = 1000,
                 AllowedOperations = ["select"],
             },
+            ExposeDetailedErrors = false,
             ExposedSchemas = schemas ?? new Dictionary<string, SchemaRule>
             {
                 ["dbo"] = new SchemaRule

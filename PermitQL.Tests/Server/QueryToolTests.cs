@@ -9,6 +9,7 @@ using NSubstitute;
 public sealed class QueryToolTests
 {
     private readonly IQueryPipeline _pipeline = Substitute.For<IQueryPipeline>();
+    private readonly IRulesProvider _rulesProvider = Substitute.For<IRulesProvider>();
 
     [Fact]
     public async Task Markdown_StringArrayCell_FormatsAsCommaSeparatedList()
@@ -18,7 +19,7 @@ public sealed class QueryToolTests
                 [new(0, "tags", "text[]", true)],
                 [new object?[] { new[] { "a", "b", "c" } }]));
 
-        var result = await PermitQLTools.Query(this._pipeline, "SELECT tags FROM t", "k", "markdown");
+        var result = await PermitQLTools.Query(this._rulesProvider, this._pipeline, "SELECT tags FROM t", "k", "markdown");
 
         Assert.Contains("[a, b, c]", result);
         Assert.DoesNotContain("System.String[]", result);
@@ -32,7 +33,7 @@ public sealed class QueryToolTests
                 [new(0, "tags", "text[]", true)],
                 [new object?[] { Array.Empty<string>() }]));
 
-        var result = await PermitQLTools.Query(this._pipeline, "SELECT tags FROM t", "k", "markdown");
+        var result = await PermitQLTools.Query(this._rulesProvider, this._pipeline, "SELECT tags FROM t", "k", "markdown");
 
         Assert.Contains("[]", result);
         Assert.DoesNotContain("System.String[]", result);
@@ -46,7 +47,7 @@ public sealed class QueryToolTests
                 [new(0, "ids", "int4[]", true)],
                 [new object?[] { new[] { 1, 2, 3 } }]));
 
-        var result = await PermitQLTools.Query(this._pipeline, "SELECT ids FROM t", "k", "markdown");
+        var result = await PermitQLTools.Query(this._rulesProvider, this._pipeline, "SELECT ids FROM t", "k", "markdown");
 
         Assert.Contains("[1, 2, 3]", result);
         Assert.DoesNotContain("System.Int32[]", result);
@@ -60,7 +61,7 @@ public sealed class QueryToolTests
                 [new(0, "tags", "text[]", true)],
                 [new object?[] { null }]));
 
-        var result = await PermitQLTools.Query(this._pipeline, "SELECT tags FROM t", "k", "markdown");
+        var result = await PermitQLTools.Query(this._rulesProvider, this._pipeline, "SELECT tags FROM t", "k", "markdown");
 
         Assert.Contains("NULL", result);
     }
@@ -73,7 +74,7 @@ public sealed class QueryToolTests
                 [new(0, "name", "text", false)],
                 [new object?[] { "hello" }]));
 
-        var result = await PermitQLTools.Query(this._pipeline, "SELECT name FROM t", "k", "markdown");
+        var result = await PermitQLTools.Query(this._rulesProvider, this._pipeline, "SELECT name FROM t", "k", "markdown");
 
         Assert.Contains("hello", result);
         Assert.DoesNotContain("[hello]", result);
@@ -87,7 +88,7 @@ public sealed class QueryToolTests
                 [new(0, "tags", "text[]", true)],
                 [new object?[] { new[] { "x", "y" } }]));
 
-        var result = await PermitQLTools.Query(this._pipeline, "SELECT tags FROM t", "k", "json");
+        var result = await PermitQLTools.Query(this._rulesProvider, this._pipeline, "SELECT tags FROM t", "k", "json");
 
         Assert.DoesNotContain("System.String[]", result);
         Assert.Contains("\"x\"", result);
@@ -103,7 +104,7 @@ public sealed class QueryToolTests
                 [new(0, "data", "bytea", false)],
                 [new object?[] { bytes }]));
 
-        var result = await PermitQLTools.Query(this._pipeline, "SELECT data FROM t", "k", "markdown");
+        var result = await PermitQLTools.Query(this._rulesProvider, this._pipeline, "SELECT data FROM t", "k", "markdown");
 
         Assert.Contains(Convert.ToBase64String(bytes), result);
         Assert.DoesNotContain("[72,", result);
@@ -118,7 +119,7 @@ public sealed class QueryToolTests
                 [new(0, "flags", "bit", false)],
                 [new object?[] { bits }]));
 
-        var result = await PermitQLTools.Query(this._pipeline, "SELECT flags FROM t", "k", "markdown");
+        var result = await PermitQLTools.Query(this._rulesProvider, this._pipeline, "SELECT flags FROM t", "k", "markdown");
 
         Assert.Contains("10110", result);
         Assert.DoesNotContain("True", result);
@@ -133,7 +134,7 @@ public sealed class QueryToolTests
                 [new(0, "meta", "hstore", false)],
                 [new object?[] { dict }]));
 
-        var result = await PermitQLTools.Query(this._pipeline, "SELECT meta FROM t", "k", "markdown");
+        var result = await PermitQLTools.Query(this._rulesProvider, this._pipeline, "SELECT meta FROM t", "k", "markdown");
 
         Assert.Contains("key1", result);
         Assert.Contains("val1", result);
@@ -150,7 +151,7 @@ public sealed class QueryToolTests
                 [new(0, "id", "uuid", false)],
                 [new object?[] { guid }]));
 
-        var result = await PermitQLTools.Query(this._pipeline, "SELECT id FROM t", "k", "markdown");
+        var result = await PermitQLTools.Query(this._rulesProvider, this._pipeline, "SELECT id FROM t", "k", "markdown");
 
         Assert.Contains("a74a28cf-04df-4fc4-9d8c-b333a9b74022", result);
         Assert.DoesNotContain("\"a74a28cf", result);
@@ -165,7 +166,7 @@ public sealed class QueryToolTests
                 [new(0, "ts", "timestamp with time zone", false)],
                 [new object?[] { dto }]));
 
-        var result = await PermitQLTools.Query(this._pipeline, "SELECT ts FROM t", "k", "markdown");
+        var result = await PermitQLTools.Query(this._rulesProvider, this._pipeline, "SELECT ts FROM t", "k", "markdown");
 
         Assert.Contains("05/23/2026", result);
         Assert.DoesNotContain("{", result);

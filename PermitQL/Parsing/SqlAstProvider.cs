@@ -46,6 +46,9 @@ public sealed class SqlAstProvider : ISqlAstProvider
         if (statements.Count == 0)
             throw new SqlParseException("No SQL statements found in input.");
 
+        if (statements.Count > 1)
+            throw new SqlParseException("Multiple statements are not allowed.");
+
         var statement = statements[0];
         var statementKind = ClassifyStatement(statement);
 
@@ -67,18 +70,32 @@ public sealed class SqlAstProvider : ISqlAstProvider
                 mutationTarget = ExtractFromObjectName(insertStmt.InsertOperation.Name);
                 if (mutationTarget is not null)
                     tables.Add(mutationTarget);
+                if (insertStmt.InsertOperation.Source is Statement.Select insertSource)
+                    ExtractFromQuery(insertSource.Query, tables, columns);
                 break;
 
             case Statement.Update updateStmt:
                 mutationTarget = ExtractFromTableFactor(updateStmt.Table.Relation);
                 if (mutationTarget is not null)
                     tables.Add(mutationTarget);
+                foreach (var assignment in updateStmt.Assignments)
+                {
+                    ExtractColumnsFromAssignment(assignment, tables, columns);
+                }
+                if (updateStmt.From is { } updateFrom)
+                    ExtractFromTableWithJoins(updateFrom, tables, columns);
+                if (updateStmt.Selection is { } updateWhere)
+                    ExtractColumnsFromExpression(updateWhere, tables, columns);
                 break;
 
             case Statement.Delete deleteStmt:
                 mutationTarget = ExtractDeleteTarget(deleteStmt.DeleteOperation);
                 if (mutationTarget is not null)
                     tables.Add(mutationTarget);
+                if (deleteStmt.DeleteOperation.Selection is { } deleteWhere)
+                    ExtractColumnsFromExpression(deleteWhere, tables, columns);
+                if (deleteStmt.DeleteOperation.Using is { } usingFactor)
+                    ExtractFromTableFactor(usingFactor, tables, columns);
                 break;
         }
 
@@ -106,7 +123,7 @@ public sealed class SqlAstProvider : ISqlAstProvider
         {
             foreach (var orderExpr in orderByExprs)
             {
-                ExtractColumnsFromExpression(orderExpr.Expression, columns);
+                ExtractColumnsFromExpression(orderExpr.Expression, tables, columns);
             }
         }
     }
@@ -140,10 +157,10 @@ public sealed class SqlAstProvider : ISqlAstProvider
             switch (item)
             {
                 case SelectItem.UnnamedExpression unnamed:
-                    ExtractColumnsFromExpression(unnamed.Expression, columns);
+                    ExtractColumnsFromExpression(unnamed.Expression, tables, columns);
                     break;
                 case SelectItem.ExpressionWithAlias withAlias:
-                    ExtractColumnsFromExpression(withAlias.Expression, columns);
+                    ExtractColumnsFromExpression(withAlias.Expression, tables, columns);
                     break;
                 // SelectItem.Wildcard — no explicit columns to extract
             }
@@ -154,34 +171,14 @@ public sealed class SqlAstProvider : ISqlAstProvider
         {
             foreach (var tableWithJoins in fromClauses)
             {
-                if (tableWithJoins.Relation is { } relation)
-                    ExtractFromTableFactor(relation, tables);
-
-                if (tableWithJoins.Joins is { } joins)
-                {
-                    foreach (var join in joins)
-                    {
-                        if (join.Relation is { } joinRelation)
-                            ExtractFromTableFactor(joinRelation, tables);
-
-                        if (join.JoinOperator is { } joinOp)
-                        {
-                            var constraint = GetJoinConstraint(joinOp);
-
-                            if (constraint is JoinConstraint.On onConstraint)
-                            {
-                                ExtractColumnsFromExpression(onConstraint.Expression, columns);
-                            }
-                        }
-                    }
-                }
+                ExtractFromTableWithJoins(tableWithJoins, tables, columns);
             }
         }
 
         // Extract from WHERE clause
         if (select.Selection is { } whereExpr)
         {
-            ExtractColumnsFromExpression(whereExpr, columns);
+            ExtractColumnsFromExpression(whereExpr, tables, columns);
         }
 
         // Extract from GROUP BY clause
@@ -189,14 +186,14 @@ public sealed class SqlAstProvider : ISqlAstProvider
         {
             foreach (var expr in groupBy.ColumnNames)
             {
-                ExtractColumnsFromExpression(expr, columns);
+                ExtractColumnsFromExpression(expr, tables, columns);
             }
         }
 
         // Extract from HAVING clause
         if (select.Having is { } havingExpr)
         {
-            ExtractColumnsFromExpression(havingExpr, columns);
+            ExtractColumnsFromExpression(havingExpr, tables, columns);
         }
     }
 
@@ -211,13 +208,56 @@ public sealed class SqlAstProvider : ISqlAstProvider
             _ => null,
         };
 
+    private static void ExtractFromTableWithJoins(
+        TableWithJoins tableWithJoins,
+        HashSet<QualifiedTableName> tables,
+        HashSet<QualifiedColumnName> columns)
+    {
+        if (tableWithJoins.Relation is { } relation)
+            ExtractFromTableFactor(relation, tables, columns);
+
+        if (tableWithJoins.Joins is { } joins)
+        {
+            foreach (var join in joins)
+            {
+                if (join.Relation is { } joinRelation)
+                    ExtractFromTableFactor(joinRelation, tables, columns);
+
+                if (join.JoinOperator is { } joinOp)
+                {
+                    var constraint = GetJoinConstraint(joinOp);
+
+                    if (constraint is JoinConstraint.On onConstraint)
+                    {
+                        ExtractColumnsFromExpression(onConstraint.Expression, tables, columns);
+                    }
+                }
+            }
+        }
+    }
+
     private static void ExtractFromTableFactor(
         TableFactor tableFactor,
-        HashSet<QualifiedTableName> tables)
+        HashSet<QualifiedTableName> tables,
+        HashSet<QualifiedColumnName> columns)
     {
-        var name = ExtractFromTableFactor(tableFactor);
-        if (name is not null)
-            tables.Add(name);
+        switch (tableFactor)
+        {
+            case TableFactor.Table table:
+                var name = ExtractFromObjectName(table.Name);
+                if (name is not null)
+                    tables.Add(name);
+                break;
+
+            case TableFactor.Derived derived:
+                ExtractFromQuery(derived.SubQuery, tables, columns);
+                break;
+
+            case TableFactor.NestedJoin nestedJoin:
+                if (nestedJoin.TableWithJoins is { } nestedTableWithJoins)
+                    ExtractFromTableWithJoins(nestedTableWithJoins, tables, columns);
+                break;
+        }
     }
 
     private static QualifiedTableName? ExtractFromTableFactor(TableFactor? tableFactor)
@@ -254,6 +294,7 @@ public sealed class SqlAstProvider : ISqlAstProvider
 
     private static void ExtractColumnsFromExpression(
         Expression expression,
+        HashSet<QualifiedTableName> tables,
         HashSet<QualifiedColumnName> columns)
     {
         switch (expression)
@@ -285,46 +326,76 @@ public sealed class SqlAstProvider : ISqlAstProvider
                 break;
 
             case Expression.BinaryOp binaryOp:
-                ExtractColumnsFromExpression(binaryOp.Left, columns);
-                ExtractColumnsFromExpression(binaryOp.Right, columns);
+                ExtractColumnsFromExpression(binaryOp.Left, tables, columns);
+                ExtractColumnsFromExpression(binaryOp.Right, tables, columns);
                 break;
 
             case Expression.UnaryOp unaryOp:
-                ExtractColumnsFromExpression(unaryOp.Expression, columns);
+                ExtractColumnsFromExpression(unaryOp.Expression, tables, columns);
                 break;
 
             case Expression.Nested nested:
-                ExtractColumnsFromExpression(nested.Expression, columns);
+                ExtractColumnsFromExpression(nested.Expression, tables, columns);
                 break;
 
             case Expression.IsNull isNull:
-                ExtractColumnsFromExpression(isNull.Expression, columns);
+                ExtractColumnsFromExpression(isNull.Expression, tables, columns);
                 break;
 
             case Expression.IsNotNull isNotNull:
-                ExtractColumnsFromExpression(isNotNull.Expression, columns);
+                ExtractColumnsFromExpression(isNotNull.Expression, tables, columns);
                 break;
 
             case Expression.Between between:
-                ExtractColumnsFromExpression(between.Expression, columns);
-                ExtractColumnsFromExpression(between.Low, columns);
-                ExtractColumnsFromExpression(between.High, columns);
+                ExtractColumnsFromExpression(between.Expression, tables, columns);
+                ExtractColumnsFromExpression(between.Low, tables, columns);
+                ExtractColumnsFromExpression(between.High, tables, columns);
                 break;
 
             case Expression.InList inList:
-                ExtractColumnsFromExpression(inList.Expression, columns);
+                ExtractColumnsFromExpression(inList.Expression, tables, columns);
                 foreach (var item in inList.List)
-                    ExtractColumnsFromExpression(item, columns);
+                    ExtractColumnsFromExpression(item, tables, columns);
                 break;
 
             case Expression.Function func:
-                ExtractColumnsFromFunctionArgs(func.Args, columns);
+                ExtractColumnsFromFunctionArgs(func.Args, tables, columns);
+                break;
+
+            case Expression.InSubquery inSub:
+                if (inSub.Expression is { } inSubExpr)
+                    ExtractColumnsFromExpression(inSubExpr, tables, columns);
+                ExtractFromQuery(inSub.SubQuery, tables, columns);
+                break;
+
+            case Expression.Exists exists:
+                ExtractFromQuery(exists.SubQuery, tables, columns);
+                break;
+
+            case Expression.Subquery subquery:
+                ExtractFromQuery(subquery.Query, tables, columns);
+                break;
+
+            case Expression.Cast cast:
+                ExtractColumnsFromExpression(cast.Expression, tables, columns);
+                break;
+
+            case Expression.Case caseExpr:
+                if (caseExpr.Operand is { } operand)
+                    ExtractColumnsFromExpression(operand, tables, columns);
+                foreach (var condition in caseExpr.Conditions)
+                    ExtractColumnsFromExpression(condition, tables, columns);
+                foreach (var result in caseExpr.Results)
+                    ExtractColumnsFromExpression(result, tables, columns);
+                if (caseExpr.ElseResult is { } elseResult)
+                    ExtractColumnsFromExpression(elseResult, tables, columns);
                 break;
         }
     }
 
     private static void ExtractColumnsFromFunctionArgs(
         FunctionArguments funcArgs,
+        HashSet<QualifiedTableName> tables,
         HashSet<QualifiedColumnName> columns)
     {
         if (funcArgs is not FunctionArguments.List list)
@@ -338,9 +409,36 @@ public sealed class SqlAstProvider : ISqlAstProvider
             if (arg is FunctionArg.Unnamed unnamed
                 && unnamed.FunctionArgExpression is FunctionArgExpression.FunctionExpression funcExpr)
             {
-                ExtractColumnsFromExpression(funcExpr.Expression, columns);
+                ExtractColumnsFromExpression(funcExpr.Expression, tables, columns);
             }
         }
+    }
+
+    private static void ExtractColumnsFromAssignment(
+        Statement.Assignment assignment,
+        HashSet<QualifiedTableName> tables,
+        HashSet<QualifiedColumnName> columns)
+    {
+        if (assignment.Target is AssignmentTarget.ColumnName colTarget)
+        {
+            var names = colTarget.Name.Values;
+            var col = names.Count switch
+            {
+                >= 2 => new QualifiedColumnName(
+                    Schema: null,
+                    Table: names[names.Count - 2].Value,
+                    Column: names[names.Count - 1].Value),
+                1 => new QualifiedColumnName(
+                    Schema: null,
+                    Table: null,
+                    Column: names[0].Value),
+                _ => null,
+            };
+            if (col is not null)
+                columns.Add(col);
+        }
+
+        ExtractColumnsFromExpression(assignment.Value, tables, columns);
     }
 
     private static List<CteDefinition>? ExtractCteDefinitions(
