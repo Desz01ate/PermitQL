@@ -13,33 +13,82 @@ exposed_schemas:
         # denied_columns: []    # excludes columns when allowed_columns is ["*"]
         # row_filter: ""        # SQL predicate injected into WHERE/ON clauses
         # allowed_operations: [] # overrides global; supported: select, insert, update, delete
+        # table_semantic_description: description for countries
+        # column_semantic_descriptions:
+            # country_id: semantic description for country_id
+            # country_name: semantic description for country_name
+            # region_id: semantic description for region_id
       departments:
         allowed_columns: ["*"] # department_id, department_name, manager_id, location_id
         # denied_columns: []    # excludes columns when allowed_columns is ["*"]
         # row_filter: ""        # SQL predicate injected into WHERE/ON clauses
         # allowed_operations: [] # overrides global; supported: select, insert, update, delete
+        # table_semantic_description: description for departments
+        # column_semantic_descriptions:
+            # department_id: semantic description for department_id
+            # department_name: semantic description for department_name
+            # manager_id: semantic description for manager_id
+            # location_id: semantic description for location_id
       employees:
         allowed_columns: ["*"] # employee_id, first_name, last_name, email, phone_number, hire_date, job_id, salary, commission_pct, manager_id, department_id
         # denied_columns: []    # excludes columns when allowed_columns is ["*"]
         # row_filter: ""        # SQL predicate injected into WHERE/ON clauses
         # allowed_operations: [] # overrides global; supported: select, insert, update, delete
+        # table_semantic_description: description for employees
+        # column_semantic_descriptions:
+            # employee_id: semantic description for employee_id
+            # first_name: semantic description for first_name
+            # last_name: semantic description for last_name
+            # email: semantic description for email
+            # phone_number: semantic description for phone_number
+            # hire_date: semantic description for hire_date
+            # job_id: semantic description for job_id
+            # salary: semantic description for salary
+            # commission_pct: semantic description for commission_pct
+            # manager_id: semantic description for manager_id
+            # department_id: semantic description for department_id
       job_history:
         allowed_columns: ["*"] # employee_id, start_date, end_date, job_id, department_id
         # denied_columns: []    # excludes columns when allowed_columns is ["*"]
         # row_filter: ""        # SQL predicate injected into WHERE/ON clauses
         # allowed_operations: [] # overrides global; supported: select, insert, update, delete
+        # table_semantic_description: description for job_history
+        # column_semantic_descriptions:
+            # employee_id: semantic description for employee_id
+            # start_date: semantic description for start_date
+            # end_date: semantic description for end_date
+            # job_id: semantic description for job_id
+            # department_id: semantic description for department_id
       jobs:
         allowed_columns: ["*"] # job_id, job_title, min_salary, max_salary
         # denied_columns: []    # excludes columns when allowed_columns is ["*"]
         # row_filter: ""        # SQL predicate injected into WHERE/ON clauses
         # allowed_operations: [] # overrides global; supported: select, insert, update, delete
+        # table_semantic_description: description for jobs
+        # column_semantic_descriptions:
+            # job_id: semantic description for job_id
+            # job_title: semantic description for job_title
+            # min_salary: semantic description for min_salary
+            # max_salary: semantic description for max_salary
       locations:
         allowed_columns: ["*"] # location_id, street_address, postal_code, city, state_province, country_id
         # denied_columns: []    # excludes columns when allowed_columns is ["*"]
         # row_filter: ""        # SQL predicate injected into WHERE/ON clauses
         # allowed_operations: [] # overrides global; supported: select, insert, update, delete
+        # table_semantic_description: description for locations
+        # column_semantic_descriptions:
+            # location_id: semantic description for location_id
+            # street_address: semantic description for street_address
+            # postal_code: semantic description for postal_code
+            # city: semantic description for city
+            # state_province: semantic description for state_province
+            # country_id: semantic description for country_id
       regions:
         allowed_columns: ["*"] # region_id, region_name
         # denied_columns: []    # excludes columns when allowed_columns is ["*"]
         # row_filter: ""        # SQL predicate injected into WHERE/ON clauses
         # allowed_operations: [] # overrides global; supported: select, insert, update, delete
+        # table_semantic_description: description for regions
+        # column_semantic_descriptions:
+            # region_id: semantic description for region_id
+            # region_name: semantic description for region_name

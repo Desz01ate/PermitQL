@@ -19,7 +19,7 @@ public sealed class StartupBootstrapTests : IDisposable
         RestoreEnvironmentVariable("PermitQL__RulesDirectory");
         RestoreEnvironmentVariable("PermitQL__ConnectionString");
         RestoreEnvironmentVariable("PermitQL__Provider");
-        RestoreEnvironmentVariable("DATAGATEWAY_CONFIG_JSON");
+        RestoreEnvironmentVariable("PERMITQL_CONFIG_JSON");
 
         if (Directory.Exists(_tempDir))
             Directory.Delete(_tempDir, true);
@@ -79,7 +79,7 @@ public sealed class StartupBootstrapTests : IDisposable
     {
         var rulesDir = Path.Combine(_tempDir, "RulesJson");
         Directory.CreateDirectory(rulesDir);
-        SetEnvironmentVariable("DATAGATEWAY_CONFIG_JSON", $$"""
+        SetEnvironmentVariable("PERMITQL_CONFIG_JSON", $$"""
                                                            {
                                                              "PermitQL": {
                                                                "RulesDirectory": "{{rulesDir}}",

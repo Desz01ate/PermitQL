@@ -54,6 +54,10 @@ public class TableRule
 
     public string[]? AllowedOperations { get; init; }
 
+    public string? TableSemanticDescription { get; init; }
+
+    public Dictionary<string, string> ColumnSemanticDescriptions { get; init; } = [];
+
     public bool IsWildcard => AllowedColumns is ["*"];
 
     public bool IsOperationAllowed(StatementKind kind, GlobalLimits globalLimits)
