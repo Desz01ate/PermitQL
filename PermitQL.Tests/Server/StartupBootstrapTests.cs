@@ -2,7 +2,6 @@ namespace PermitQL.Tests.Server;
 
 using PermitQL;
 using PermitQL.Abstractions;
-using PermitQL.Server;
 
 public sealed class StartupBootstrapTests : IDisposable
 {

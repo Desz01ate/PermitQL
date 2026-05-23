@@ -4,7 +4,6 @@ using PermitQL.Abstractions;
 using PermitQL.Server;
 using PermitQL.Server.Models;
 using System.Text;
-using PermitQL.Rules;
 
 await Parser.Default.ParseArguments<DiscoverOptions, ServeOptions>(args)
             .MapResult(
@@ -14,9 +13,8 @@ await Parser.Default.ParseArguments<DiscoverOptions, ServeOptions>(args)
 
 async Task<int> RunDiscoverAsync(DiscoverOptions discover)
 {
-    var options = StartupBootstrap.LoadOptions(allowMissingAppSettings: false);
-    var connectionFactory = ConnectionFactory.Create(options.Provider, options.ConnectionString);
-    var schemaDiscovery = SchemaDiscoveryFactory.Create(options.Provider, connectionFactory);
+    var connectionFactory = ConnectionFactory.Create(discover.Provider, discover.ConnectionString);
+    var schemaDiscovery = SchemaDiscoveryFactory.Create(discover.Provider, connectionFactory);
 
     await schemaDiscovery.DiscoverAsync(discover.Output, discover.Schemas.ToArray());
 
