@@ -22,12 +22,12 @@ public sealed class AdoNetDataAccessor : IDataAccessor
         IStatisticsResolver? statisticsResolver = null,
         IProviderCapabilityResolver? capabilityResolver = null)
     {
-        _connectionFactory = connectionFactory;
-        _constraintResolver = constraintResolver ?? NullConstraintResolver.Instance;
-        _relationshipResolver = relationshipResolver ?? NullRelationshipResolver.Instance;
-        _indexResolver = indexResolver ?? NullIndexResolver.Instance;
-        _statisticsResolver = statisticsResolver ?? NullStatisticsResolver.Instance;
-        _capabilityResolver = capabilityResolver ?? NullProviderCapabilityResolver.Instance;
+        this._connectionFactory = connectionFactory;
+        this._constraintResolver = constraintResolver ?? NullConstraintResolver.Instance;
+        this._relationshipResolver = relationshipResolver ?? NullRelationshipResolver.Instance;
+        this._indexResolver = indexResolver ?? NullIndexResolver.Instance;
+        this._statisticsResolver = statisticsResolver ?? NullStatisticsResolver.Instance;
+        this._capabilityResolver = capabilityResolver ?? NullProviderCapabilityResolver.Instance;
     }
 
     public AdoNetDataAccessor(Func<DbConnection> connectionFactory, IForeignKeyResolver? fkResolver)
@@ -41,7 +41,7 @@ public sealed class AdoNetDataAccessor : IDataAccessor
         string query,
         CancellationToken cancellationToken = default)
     {
-        await using var connection = _connectionFactory();
+        await using var connection = this._connectionFactory();
         await connection.OpenAsync(cancellationToken);
         await using var command = connection.CreateCommand();
         command.CommandText = query;
@@ -70,7 +70,7 @@ public sealed class AdoNetDataAccessor : IDataAccessor
         string table,
         CancellationToken cancellationToken = default)
     {
-        await using var connection = _connectionFactory();
+        await using var connection = this._connectionFactory();
         await connection.OpenAsync(cancellationToken);
         await using var command = connection.CreateCommand();
         command.CommandText = $"SELECT * FROM \"{schema}\".\"{table}\" WHERE 1=0";
@@ -97,9 +97,9 @@ public sealed class AdoNetDataAccessor : IDataAccessor
         string table,
         CancellationToken cancellationToken = default)
     {
-        await using var connection = _connectionFactory();
+        await using var connection = this._connectionFactory();
         await connection.OpenAsync(cancellationToken);
-        return await _constraintResolver.ResolveAsync(connection, schema, table, cancellationToken);
+        return await this._constraintResolver.ResolveAsync(connection, schema, table, cancellationToken);
     }
 
     public async ValueTask<IReadOnlyList<ForeignKeyMetadata>> GetOutboundForeignKeysAsync(
@@ -107,9 +107,9 @@ public sealed class AdoNetDataAccessor : IDataAccessor
         string table,
         CancellationToken cancellationToken = default)
     {
-        await using var connection = _connectionFactory();
+        await using var connection = this._connectionFactory();
         await connection.OpenAsync(cancellationToken);
-        return await _relationshipResolver.ResolveOutboundAsync(connection, schema, table, cancellationToken);
+        return await this._relationshipResolver.ResolveOutboundAsync(connection, schema, table, cancellationToken);
     }
 
     public async ValueTask<IReadOnlyList<ForeignKeyMetadata>> GetInboundForeignKeysAsync(
@@ -117,9 +117,9 @@ public sealed class AdoNetDataAccessor : IDataAccessor
         string table,
         CancellationToken cancellationToken = default)
     {
-        await using var connection = _connectionFactory();
+        await using var connection = this._connectionFactory();
         await connection.OpenAsync(cancellationToken);
-        return await _relationshipResolver.ResolveInboundAsync(connection, schema, table, cancellationToken);
+        return await this._relationshipResolver.ResolveInboundAsync(connection, schema, table, cancellationToken);
     }
 
     public async ValueTask<IReadOnlyList<TableIndexMetadata>> GetTableIndexesAsync(
@@ -127,9 +127,9 @@ public sealed class AdoNetDataAccessor : IDataAccessor
         string table,
         CancellationToken cancellationToken = default)
     {
-        await using var connection = _connectionFactory();
+        await using var connection = this._connectionFactory();
         await connection.OpenAsync(cancellationToken);
-        return await _indexResolver.ResolveAsync(connection, schema, table, cancellationToken);
+        return await this._indexResolver.ResolveAsync(connection, schema, table, cancellationToken);
     }
 
     public async ValueTask<TableStatisticsMetadata> GetTableStatisticsAsync(
@@ -137,19 +137,19 @@ public sealed class AdoNetDataAccessor : IDataAccessor
         string table,
         CancellationToken cancellationToken = default)
     {
-        await using var connection = _connectionFactory();
+        await using var connection = this._connectionFactory();
         await connection.OpenAsync(cancellationToken);
-        return await _statisticsResolver.ResolveAsync(connection, schema, table, cancellationToken);
+        return await this._statisticsResolver.ResolveAsync(connection, schema, table, cancellationToken);
     }
 
     public ValueTask<QueryCapabilityMetadata> GetQueryCapabilitiesAsync(CancellationToken cancellationToken = default)
-        => _capabilityResolver.ResolveAsync(cancellationToken);
+        => this._capabilityResolver.ResolveAsync(cancellationToken);
 
     public async IAsyncEnumerable<object?[]> QueryAsync(
         string query,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        await using var connection = _connectionFactory();
+        await using var connection = this._connectionFactory();
         await connection.OpenAsync(cancellationToken);
         await using var command = connection.CreateCommand();
         command.CommandText = query;
@@ -184,7 +184,7 @@ public sealed class AdoNetDataAccessor : IDataAccessor
 
         public ForeignKeyRelationshipResolver(IForeignKeyResolver fkResolver)
         {
-            _fkResolver = fkResolver;
+            this._fkResolver = fkResolver;
         }
 
         public ValueTask<IReadOnlyList<ForeignKeyMetadata>> ResolveOutboundAsync(
@@ -192,7 +192,7 @@ public sealed class AdoNetDataAccessor : IDataAccessor
             string schema,
             string table,
             CancellationToken cancellationToken = default)
-            => _fkResolver.ResolveAsync(connection, schema, table, cancellationToken);
+            => this._fkResolver.ResolveAsync(connection, schema, table, cancellationToken);
 
         public ValueTask<IReadOnlyList<ForeignKeyMetadata>> ResolveInboundAsync(
             DbConnection connection,

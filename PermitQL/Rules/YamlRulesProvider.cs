@@ -15,22 +15,22 @@ public sealed class YamlRulesProvider : IRulesProvider
                            .WithNamingConvention(UnderscoredNamingConvention.Instance)
                            .Build();
 
-        _ruleSets = new Dictionary<string, RuleSet>(StringComparer.OrdinalIgnoreCase);
+        this._ruleSets = new Dictionary<string, RuleSet>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var file in Directory.EnumerateFiles(rulesDirectory, "*.yaml"))
         {
             var yaml = File.ReadAllText(file);
             var ruleSet = deserializer.Deserialize<RuleSet>(yaml);
-            _ruleSets[ruleSet.Database] = ruleSet;
+            this._ruleSets[ruleSet.Database] = ruleSet;
         }
     }
 
     public RuleSet GetRuleSet(string key)
     {
-        if (_ruleSets.TryGetValue(key, out var ruleSet))
+        if (this._ruleSets.TryGetValue(key, out var ruleSet))
             return ruleSet;
-        throw new KeyNotFoundException($"No rule set found for key '{key}'. Available keys: {string.Join(", ", _ruleSets.Keys)}");
+        throw new KeyNotFoundException($"No rule set found for key '{key}'. Available keys: {string.Join(", ", this._ruleSets.Keys)}");
     }
 
-    public IReadOnlyList<string> GetAvailableKeys() => _ruleSets.Keys.ToList();
+    public IReadOnlyList<string> GetAvailableKeys() => this._ruleSets.Keys.ToList();
 }

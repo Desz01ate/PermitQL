@@ -185,23 +185,23 @@ public class PermitQLFactoryTests
             IProviderCapabilityResolver capabilityResolver)
             : base(dialect)
         {
-            _constraintResolver = constraintResolver;
-            _relationshipResolver = relationshipResolver;
-            _indexResolver = indexResolver;
-            _statisticsResolver = statisticsResolver;
-            _capabilityResolver = capabilityResolver;
+            this._constraintResolver = constraintResolver;
+            this._relationshipResolver = relationshipResolver;
+            this._indexResolver = indexResolver;
+            this._statisticsResolver = statisticsResolver;
+            this._capabilityResolver = capabilityResolver;
         }
 
         public override IForeignKeyResolver CreateForeignKeyResolver() => NullForeignKeyResolver.Instance;
 
-        public override IConstraintResolver CreateConstraintResolver() => _constraintResolver;
+        public override IConstraintResolver CreateConstraintResolver() => this._constraintResolver;
 
-        public override IRelationshipResolver CreateRelationshipResolver() => _relationshipResolver;
+        public override IRelationshipResolver CreateRelationshipResolver() => this._relationshipResolver;
 
-        public override IIndexResolver CreateIndexResolver() => _indexResolver;
+        public override IIndexResolver CreateIndexResolver() => this._indexResolver;
 
-        public override IStatisticsResolver CreateStatisticsResolver() => _statisticsResolver;
+        public override IStatisticsResolver CreateStatisticsResolver() => this._statisticsResolver;
 
-        public override IProviderCapabilityResolver CreateProviderCapabilityResolver() => _capabilityResolver;
+        public override IProviderCapabilityResolver CreateProviderCapabilityResolver() => this._capabilityResolver;
     }
 }

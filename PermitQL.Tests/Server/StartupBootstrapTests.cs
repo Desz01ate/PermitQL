@@ -10,27 +10,27 @@ public sealed class StartupBootstrapTests : IDisposable
 
     public StartupBootstrapTests()
     {
-        Directory.CreateDirectory(_tempDir);
+        Directory.CreateDirectory(this._tempDir);
     }
 
     public void Dispose()
     {
-        RestoreEnvironmentVariable("PermitQL__RulesDirectory");
-        RestoreEnvironmentVariable("PermitQL__ConnectionString");
-        RestoreEnvironmentVariable("PermitQL__Provider");
-        RestoreEnvironmentVariable("PERMITQL_CONFIG_JSON");
+        this.RestoreEnvironmentVariable("PermitQL__RulesDirectory");
+        this.RestoreEnvironmentVariable("PermitQL__ConnectionString");
+        this.RestoreEnvironmentVariable("PermitQL__Provider");
+        this.RestoreEnvironmentVariable("PERMITQL_CONFIG_JSON");
 
-        if (Directory.Exists(_tempDir))
-            Directory.Delete(_tempDir, true);
+        if (Directory.Exists(this._tempDir))
+            Directory.Delete(this._tempDir, true);
     }
 
     [Fact]
     public void ResolveRulesDirectory_WhenRelative_ReturnsAbsolutePathUnderBaseDirectory()
     {
-        var rulesDir = Path.Combine(_tempDir, "Rules");
+        var rulesDir = Path.Combine(this._tempDir, "Rules");
         Directory.CreateDirectory(rulesDir);
 
-        var resolved = StartupBootstrap.ResolveRulesDirectory(_tempDir, "Rules");
+        var resolved = StartupBootstrap.ResolveRulesDirectory(this._tempDir, "Rules");
 
         Assert.Equal(rulesDir, resolved);
     }
@@ -39,7 +39,7 @@ public sealed class StartupBootstrapTests : IDisposable
     public void ResolveRulesDirectory_WhenDirectoryDoesNotExist_ThrowsClearError()
     {
         var ex = Assert.Throws<DirectoryNotFoundException>(
-            () => StartupBootstrap.ResolveRulesDirectory(_tempDir, "MissingRules"));
+            () => StartupBootstrap.ResolveRulesDirectory(this._tempDir, "MissingRules"));
 
         Assert.Contains("MissingRules", ex.Message, StringComparison.Ordinal);
     }
@@ -60,13 +60,13 @@ public sealed class StartupBootstrapTests : IDisposable
     [Fact]
     public void LoadOptions_WhenAppSettingsMissingAndAllowMissing_UsesEnvironmentVariables()
     {
-        var rulesDir = Path.Combine(_tempDir, "Rules");
+        var rulesDir = Path.Combine(this._tempDir, "Rules");
         Directory.CreateDirectory(rulesDir);
-        SetEnvironmentVariable("PermitQL__RulesDirectory", rulesDir);
-        SetEnvironmentVariable("PermitQL__ConnectionString", "Data Source=:memory:");
-        SetEnvironmentVariable("PermitQL__Provider", "sqlite");
+        this.SetEnvironmentVariable("PermitQL__RulesDirectory", rulesDir);
+        this.SetEnvironmentVariable("PermitQL__ConnectionString", "Data Source=:memory:");
+        this.SetEnvironmentVariable("PermitQL__Provider", "sqlite");
 
-        var options = StartupBootstrap.LoadOptions(allowMissingAppSettings: true, basePath: _tempDir);
+        var options = StartupBootstrap.LoadOptions(allowMissingAppSettings: true, basePath: this._tempDir);
 
         Assert.Equal(rulesDir, options.RulesDirectory);
         Assert.Equal("Data Source=:memory:", options.ConnectionString);
@@ -76,19 +76,19 @@ public sealed class StartupBootstrapTests : IDisposable
     [Fact]
     public void LoadOptions_WhenConfigJsonEnvironmentVariableSet_UsesJsonPayload()
     {
-        var rulesDir = Path.Combine(_tempDir, "RulesJson");
+        var rulesDir = Path.Combine(this._tempDir, "RulesJson");
         Directory.CreateDirectory(rulesDir);
-        SetEnvironmentVariable("PERMITQL_CONFIG_JSON", $$"""
-                                                           {
-                                                             "PermitQL": {
-                                                               "RulesDirectory": "{{rulesDir}}",
-                                                               "ConnectionString": "Data Source={{Path.Combine(_tempDir, "test.db")}}",
-                                                               "Provider": "sqlite"
-                                                             }
-                                                           }
-                                                           """);
+        this.SetEnvironmentVariable("PERMITQL_CONFIG_JSON", $$"""
+                                                              {
+                                                                "PermitQL": {
+                                                                  "RulesDirectory": "{{rulesDir}}",
+                                                                  "ConnectionString": "Data Source={{Path.Combine(this._tempDir, "test.db")}}",
+                                                                  "Provider": "sqlite"
+                                                                }
+                                                              }
+                                                              """);
 
-        var options = StartupBootstrap.LoadOptions(allowMissingAppSettings: true, basePath: _tempDir);
+        var options = StartupBootstrap.LoadOptions(allowMissingAppSettings: true, basePath: this._tempDir);
 
         Assert.Equal(rulesDir, options.RulesDirectory);
         Assert.Contains("test.db", options.ConnectionString, StringComparison.Ordinal);
@@ -97,15 +97,14 @@ public sealed class StartupBootstrapTests : IDisposable
 
     private void SetEnvironmentVariable(string key, string value)
     {
-        if (!_originalEnvironment.ContainsKey(key))
-            _originalEnvironment[key] = Environment.GetEnvironmentVariable(key);
+        if (!this._originalEnvironment.ContainsKey(key)) this._originalEnvironment[key] = Environment.GetEnvironmentVariable(key);
 
         Environment.SetEnvironmentVariable(key, value);
     }
 
     private void RestoreEnvironmentVariable(string key)
     {
-        if (_originalEnvironment.TryGetValue(key, out var originalValue))
+        if (this._originalEnvironment.TryGetValue(key, out var originalValue))
             Environment.SetEnvironmentVariable(key, originalValue);
         else
             Environment.SetEnvironmentVariable(key, null);

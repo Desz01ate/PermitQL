@@ -11,7 +11,7 @@ public abstract class QueryRewriterBase : IQueryRewriter
 
     protected QueryRewriterBase(IDataAccessor dataAccessor)
     {
-        _dataAccessor = dataAccessor;
+        this._dataAccessor = dataAccessor;
     }
 
     protected record RowLimitResult(Expression? Limit, Top? Top, Fetch? Fetch);
@@ -47,7 +47,7 @@ public abstract class QueryRewriterBase : IQueryRewriter
         var aliasMap = BuildAliasMap(select);
         var tableInfoMap = BuildTableInfoMap(select, aliasMap, rules);
 
-        var modifiedProjection = await ExpandSelectStarAsync(
+        var modifiedProjection = await this.ExpandSelectStarAsync(
             select.Projection, tableInfoMap, rules, cancellationToken);
 
         Expression? modifiedSelection;
@@ -64,7 +64,7 @@ public abstract class QueryRewriterBase : IQueryRewriter
             modifiedFrom = select.From;
         }
 
-        var rowLimit = ApplyRowLimit(freshQuery.Limit, select.Top, freshQuery.Fetch, rules);
+        var rowLimit = this.ApplyRowLimit(freshQuery.Limit, select.Top, freshQuery.Fetch, rules);
 
         var modifiedSelect = select with
         {
@@ -216,7 +216,7 @@ public abstract class QueryRewriterBase : IQueryRewriter
 
             foreach (var (tableName, info) in tableInfoMap)
             {
-                var columns = await GetAllowedColumnsAsync(tableName, info.Rule, ct);
+                var columns = await this.GetAllowedColumnsAsync(tableName, info.Rule, ct);
 
                 foreach (var column in columns)
                 {
@@ -238,7 +238,7 @@ public abstract class QueryRewriterBase : IQueryRewriter
             return rule.AllowedColumns;
 
         var metadataQuery = $"SELECT * FROM {tableName} WHERE 1=0";
-        var columnDefs = await _dataAccessor.GetColumnDefinitionAsync(metadataQuery, ct);
+        var columnDefs = await this._dataAccessor.GetColumnDefinitionAsync(metadataQuery, ct);
 
         var denied = rule.DeniedColumns ?? [];
         var deniedSet = new HashSet<string>(denied, StringComparer.OrdinalIgnoreCase);

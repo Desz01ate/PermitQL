@@ -11,7 +11,7 @@ public class QueryRewriterTests
     private readonly SqlAstProvider _astProvider = new();
     private readonly IDataAccessor _dataAccessor = Substitute.For<IDataAccessor>();
 
-    private LimitQueryRewriter CreateRewriter() => new(_dataAccessor);
+    private LimitQueryRewriter CreateRewriter() => new(this._dataAccessor);
 
     private static RuleSet MakeRules(
         int maxRows = 100,
@@ -51,8 +51,8 @@ public class QueryRewriterTests
     [Fact]
     public async Task InjectsRowFilter_WhenNoWhereClause()
     {
-        var parsed = _astProvider.GetOrParse("SELECT id FROM products");
-        var rewriter = CreateRewriter();
+        var parsed = this._astProvider.GetOrParse("SELECT id FROM products");
+        var rewriter = this.CreateRewriter();
         var sql = await rewriter.RewriteAsync(parsed, MakeRules());
         Assert.Contains("is_active", sql, StringComparison.OrdinalIgnoreCase);
     }
@@ -60,8 +60,8 @@ public class QueryRewriterTests
     [Fact]
     public async Task InjectsRowFilter_AndsWithExistingWhere()
     {
-        var parsed = _astProvider.GetOrParse("SELECT id FROM products WHERE price > 10");
-        var rewriter = CreateRewriter();
+        var parsed = this._astProvider.GetOrParse("SELECT id FROM products WHERE price > 10");
+        var rewriter = this.CreateRewriter();
         var sql = await rewriter.RewriteAsync(parsed, MakeRules());
         Assert.Contains("is_active", sql, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("price > 10", sql, StringComparison.OrdinalIgnoreCase);
@@ -70,8 +70,8 @@ public class QueryRewriterTests
     [Fact]
     public async Task InjectsLimit_WhenNoLimitPresent()
     {
-        var parsed = _astProvider.GetOrParse("SELECT id FROM products");
-        var rewriter = CreateRewriter();
+        var parsed = this._astProvider.GetOrParse("SELECT id FROM products");
+        var rewriter = this.CreateRewriter();
         var sql = await rewriter.RewriteAsync(parsed, MakeRules(maxRows: 50));
         Assert.Contains("LIMIT 50", sql, StringComparison.OrdinalIgnoreCase);
     }
@@ -79,8 +79,8 @@ public class QueryRewriterTests
     [Fact]
     public async Task LowersLimit_WhenExistingLimitExceedsMax()
     {
-        var parsed = _astProvider.GetOrParse("SELECT id FROM products LIMIT 500");
-        var rewriter = CreateRewriter();
+        var parsed = this._astProvider.GetOrParse("SELECT id FROM products LIMIT 500");
+        var rewriter = this.CreateRewriter();
         var sql = await rewriter.RewriteAsync(parsed, MakeRules(maxRows: 100));
         Assert.Contains("LIMIT 100", sql, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("LIMIT 500", sql, StringComparison.OrdinalIgnoreCase);
@@ -89,8 +89,8 @@ public class QueryRewriterTests
     [Fact]
     public async Task KeepsLimit_WhenExistingLimitBelowMax()
     {
-        var parsed = _astProvider.GetOrParse("SELECT id FROM products LIMIT 10");
-        var rewriter = CreateRewriter();
+        var parsed = this._astProvider.GetOrParse("SELECT id FROM products LIMIT 10");
+        var rewriter = this.CreateRewriter();
         var sql = await rewriter.RewriteAsync(parsed, MakeRules(maxRows: 100));
         Assert.Contains("LIMIT 10", sql, StringComparison.OrdinalIgnoreCase);
     }
@@ -98,8 +98,8 @@ public class QueryRewriterTests
     [Fact]
     public async Task ExpandsSelectStar_WithExplicitAllowedColumns()
     {
-        var parsed = _astProvider.GetOrParse("SELECT * FROM products");
-        var rewriter = CreateRewriter();
+        var parsed = this._astProvider.GetOrParse("SELECT * FROM products");
+        var rewriter = this.CreateRewriter();
         var sql = await rewriter.RewriteAsync(parsed, MakeRules());
         Assert.DoesNotContain("*", sql);
         Assert.Contains("id", sql, StringComparison.OrdinalIgnoreCase);
@@ -125,7 +125,7 @@ public class QueryRewriterTests
                 },
             },
         };
-        _dataAccessor
+        this._dataAccessor
             .GetColumnDefinitionAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns(new List<ColumnDefinition>
             {
@@ -133,8 +133,8 @@ public class QueryRewriterTests
                 new(1, "email", "text", false),
                 new(2, "password_hash", "text", false),
             });
-        var parsed = _astProvider.GetOrParse("SELECT * FROM users");
-        var rewriter = CreateRewriter();
+        var parsed = this._astProvider.GetOrParse("SELECT * FROM users");
+        var rewriter = this.CreateRewriter();
         var sql = await rewriter.RewriteAsync(parsed, wildcardRules);
         Assert.DoesNotContain("*", sql);
         Assert.Contains("id", sql, StringComparison.OrdinalIgnoreCase);
@@ -145,8 +145,8 @@ public class QueryRewriterTests
     [Fact]
     public async Task NoRowFilter_SkipsInjection()
     {
-        var parsed = _astProvider.GetOrParse("SELECT id FROM orders");
-        var rewriter = CreateRewriter();
+        var parsed = this._astProvider.GetOrParse("SELECT id FROM orders");
+        var rewriter = this.CreateRewriter();
         var sql = await rewriter.RewriteAsync(parsed, MakeRules());
         Assert.DoesNotContain("is_active", sql, StringComparison.OrdinalIgnoreCase);
     }
@@ -154,9 +154,9 @@ public class QueryRewriterTests
     [Fact]
     public async Task RowFilter_OnJoinedTable_InjectsIntoOnClause()
     {
-        var parsed = _astProvider.GetOrParse(
+        var parsed = this._astProvider.GetOrParse(
             "SELECT o.id, p.name FROM orders o JOIN products p ON o.id = p.id");
-        var rewriter = CreateRewriter();
+        var rewriter = this.CreateRewriter();
         var sql = await rewriter.RewriteAsync(parsed, MakeRules());
         // products row filter should be alias-qualified with "p" and in ON clause
         Assert.Contains("is_active", sql, StringComparison.OrdinalIgnoreCase);
@@ -166,8 +166,8 @@ public class QueryRewriterTests
     [Fact]
     public async Task RowFilter_OnFromTable_InjectsIntoWhere()
     {
-        var parsed = _astProvider.GetOrParse("SELECT id FROM products");
-        var rewriter = CreateRewriter();
+        var parsed = this._astProvider.GetOrParse("SELECT id FROM products");
+        var rewriter = this.CreateRewriter();
         var sql = await rewriter.RewriteAsync(parsed, MakeRules());
         Assert.Contains("WHERE", sql, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("is_active", sql, StringComparison.OrdinalIgnoreCase);
@@ -177,9 +177,9 @@ public class QueryRewriterTests
     public async Task PassesThroughDml_Insert_WhenMutationsAllowed()
     {
         var rules = MakeRules();
-        var parsed = _astProvider.GetOrParse(
+        var parsed = this._astProvider.GetOrParse(
             "INSERT INTO products (name, price) VALUES ('Test', 9.99)");
-        var rewriter = CreateRewriter();
+        var rewriter = this.CreateRewriter();
         var sql = await rewriter.RewriteAsync(parsed, rules);
         Assert.Contains("INSERT", sql, StringComparison.OrdinalIgnoreCase);
     }
@@ -188,8 +188,8 @@ public class QueryRewriterTests
     public async Task PassesThroughDml_Update_WhenMutationsAllowed()
     {
         var rules = MakeRules();
-        var parsed = _astProvider.GetOrParse("UPDATE products SET price = 5.00 WHERE id = 1");
-        var rewriter = CreateRewriter();
+        var parsed = this._astProvider.GetOrParse("UPDATE products SET price = 5.00 WHERE id = 1");
+        var rewriter = this.CreateRewriter();
         var sql = await rewriter.RewriteAsync(parsed, rules);
         Assert.Contains("UPDATE", sql, StringComparison.OrdinalIgnoreCase);
     }
@@ -198,8 +198,8 @@ public class QueryRewriterTests
     public async Task PassesThroughDml_Delete_WhenMutationsAllowed()
     {
         var rules = MakeRules();
-        var parsed = _astProvider.GetOrParse("DELETE FROM products WHERE id = 1");
-        var rewriter = CreateRewriter();
+        var parsed = this._astProvider.GetOrParse("DELETE FROM products WHERE id = 1");
+        var rewriter = this.CreateRewriter();
         var sql = await rewriter.RewriteAsync(parsed, rules);
         Assert.Contains("DELETE", sql, StringComparison.OrdinalIgnoreCase);
     }
