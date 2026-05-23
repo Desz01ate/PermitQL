@@ -4,5 +4,5 @@ using Models;
 
 public interface IQueryPipeline
 {
-    Task<QueryResult> ExecuteAsync(string query, string ruleSetKey, CancellationToken cancellationToken = default);
+    Task<Result<QueryResult, Exception>> ExecuteAsync(string query, string ruleSetKey, CancellationToken cancellationToken = default);
 }

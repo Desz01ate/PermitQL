@@ -34,19 +34,18 @@ public static partial class PermitQLTools
         string format = "json",
         CancellationToken cancellationToken = default)
     {
-        try
-        {
-            var result = await pipeline.ExecuteAsync(query, ruleSetKey, cancellationToken);
+        var result = await pipeline.ExecuteAsync(query, ruleSetKey, cancellationToken);
 
-            return format.Equals("json", StringComparison.OrdinalIgnoreCase)
-                ? FormatAsJson(result)
-                : FormatAsMarkdown(result);
-        }
-        catch (Exception ex)
-        {
-            var (message, type, _) = ErrorHandler.Classify(ex);
-            return $"Error ({type}): {message}";
-        }
+        return result.Match(
+            succ =>
+                format.Equals("json", StringComparison.OrdinalIgnoreCase)
+                    ? FormatAsJson(succ)
+                    : FormatAsMarkdown(succ),
+            static err =>
+            {
+                var (message, type, _) = ErrorHandler.Classify(err);
+                return $"Error ({type}): {message}";
+            });
     }
 
     [McpServerTool(Name = "list_databases"),

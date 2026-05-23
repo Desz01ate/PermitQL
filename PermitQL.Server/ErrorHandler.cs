@@ -11,6 +11,6 @@ public static class ErrorHandler
         AmbiguousTableException e => (e.Message, "ambiguous_table", 400),
         KeyNotFoundException e => (e.Message, "not_found", 404),
         OperationCanceledException => ("Query execution timed out.", "timeout", 408),
-        _ => ("An unexpected error occurred.", "internal_error", 500),
+        _ => (ex.Message, "internal_error", 500),
     };
 }
