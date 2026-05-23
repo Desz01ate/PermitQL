@@ -38,11 +38,13 @@
         </None>
     </ItemGroup>
     <ItemGroup>
-        <PackageReference Include="ModelContextProtocol"/>
-        <PackageReference Include="ModelContextProtocol.AspNetCore"/>
-        <PackageReference Include="Npgsql"/>
-        <PackageReference Include="Microsoft.Data.Sqlite"/>
-        <PackageReference Include="CommandLineParser"/>
+        <PackageReference Include="ModelContextProtocol" />
+        <PackageReference Include="ModelContextProtocol.AspNetCore" />
+        <PackageReference Include="Npgsql" />
+        <PackageReference Include="Microsoft.Data.Sqlite" />
+        <PackageReference Include="CommandLineParser" />
+        <PackageReference Include="Npgsql.GeoJSON" />
+        <PackageReference Include="Pgvector" />
     </ItemGroup>
     <ItemGroup>
         <ProjectReference Include="..\PermitQL\PermitQL.csproj" />

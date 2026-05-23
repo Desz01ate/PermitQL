@@ -160,8 +160,21 @@ public sealed class AdoNetDataAccessor : IDataAccessor
         {
             var values = new object?[fieldCount];
             for (var i = 0; i < fieldCount; i++)
-                values[i] = reader.IsDBNull(i) ? null : reader.GetValue(i);
+                values[i] = reader.IsDBNull(i) ? null : ReadValue(reader, i);
             yield return values;
+        }
+    }
+
+    private static object ReadValue(DbDataReader reader, int ordinal)
+    {
+        try
+        {
+            return reader.GetValue(ordinal);
+        }
+        catch
+        {
+            try { return reader.GetFieldValue<string>(ordinal); }
+            catch { return $"<unsupported:{reader.GetDataTypeName(ordinal)}>"; }
         }
     }
 
