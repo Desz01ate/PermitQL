@@ -26,6 +26,7 @@
     </PropertyGroup>
     <ItemGroup>
         <None Include="..\README.md" Pack="true" PackagePath="/" Link="README.md" />
+        <EmbeddedResource Include="openapi.json" />
         <Content Update="appsettings*.json">
             <Pack>false</Pack>
             <CopyToOutputDirectory>Never</CopyToOutputDirectory>

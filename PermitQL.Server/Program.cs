@@ -3,6 +3,7 @@ using PermitQL;
 using PermitQL.Abstractions;
 using PermitQL.Server;
 using PermitQL.Server.Models;
+using System.Reflection;
 using System.Text;
 
 await Parser.Default.ParseArguments<DiscoverOptions, ServeOptions>(args)
@@ -62,55 +63,71 @@ async Task<int> RunServeAsync(ServeOptions serve)
                .WithToolsFromAssembly();
 
         var app = builder.Build();
-        app.MapMcp();
+        app.MapMcp("/mcp");
 
-        app.MapPost("/api/query", async (QueryRequest request, IQueryPipeline pipeline, CancellationToken ct) =>
-        {
-            try
-            {
-                var result = await pipeline.ExecuteAsync(request.Query, request.RuleSetKey, ct);
-                var response = new QueryResponse(
-                    result.Columns.Select(c => new ColumnInfo(c.Name, c.Type, c.IsNullable)).ToList(),
-                    result.Rows,
-                    result.Rows.Count);
-                return Results.Ok(response);
-            }
-            catch (Exception ex)
-            {
-                var (message, type, statusCode) = ErrorHandler.Classify(ex);
-                return Results.Json(new ErrorResponse(message, type), statusCode: statusCode);
-            }
-        });
+        var openApiSpec = LoadEmbeddedOpenApiSpec();
+        app.MapGet("/", () => Results.Content(openApiSpec, "application/json"));
 
-        app.MapGet("/api/databases", (IRulesProvider rulesProvider) =>
-        {
-            return Results.Ok(rulesProvider.GetAvailableKeys());
-        });
+        app.MapPost(
+            "/api/databases/{ruleSetKey}/query",
+            static async (string ruleSetKey, QueryRequest request, IQueryPipeline pipeline, CancellationToken ct) =>
+            {
+                try
+                {
+                    var result = await pipeline.ExecuteAsync(request.Query, ruleSetKey, ct);
+                    var response = new QueryResponse(
+                        result.Columns.Select(c => new ColumnInfo(c.Name, c.Type, c.IsNullable)).ToList(),
+                        result.Rows,
+                        result.Rows.Count);
+                    return Results.Ok(response);
+                }
+                catch (Exception ex)
+                {
+                    var (message, type, statusCode) = ErrorHandler.Classify(ex);
+                    return Results.Json(new ErrorResponse(message, type), statusCode: statusCode);
+                }
+            });
 
-        app.MapGet("/api/databases/{key}", async (
-            string key,
-            IDataAccessor dataAccessor,
-            IRulesProvider rulesProvider,
-            IPermitQLFactory factory,
-            ValidatorCapabilityDescriptor validatorCapabilities,
-            CancellationToken ct) =>
-        {
-            try
+        app.MapGet(
+            "/api/databases",
+            static (IRulesProvider rulesProvider)
+                => Results.Ok((object?)rulesProvider.GetAvailableKeys()));
+
+        app.MapGet(
+            "/api/databases/{key}",
+            static async (
+                string key,
+                IDataAccessor dataAccessor,
+                IRulesProvider rulesProvider,
+                IPermitQLFactory factory,
+                ValidatorCapabilityDescriptor validatorCapabilities,
+                CancellationToken ct) =>
             {
-                var description = await PermitQL.Server.Tools.PermitQLTools.DescribeDatabase(dataAccessor, rulesProvider, factory, validatorCapabilities, key, ct);
-                return Results.Content(description, "application/json");
-            }
-            catch (Exception ex)
-            {
-                var (message, type, statusCode) = ErrorHandler.Classify(ex);
-                return Results.Json(new ErrorResponse(message, type), statusCode: statusCode);
-            }
-        });
+                try
+                {
+                    var description = await PermitQL.Server.Tools.PermitQLTools.DescribeDatabase(dataAccessor, rulesProvider, factory, validatorCapabilities, key, ct);
+                    return Results.Content(description, "application/json");
+                }
+                catch (Exception ex)
+                {
+                    var (message, type, statusCode) = ErrorHandler.Classify(ex);
+                    return Results.Json(new ErrorResponse(message, type), statusCode: statusCode);
+                }
+            });
 
         await app.RunAsync();
     }
 
     return 0;
+}
+
+static string LoadEmbeddedOpenApiSpec()
+{
+    var assembly = Assembly.GetExecutingAssembly();
+    using var stream = assembly.GetManifestResourceStream("PermitQL.Server.openapi.json")
+                       ?? throw new InvalidOperationException("Embedded openapi.json resource not found.");
+    using var reader = new StreamReader(stream);
+    return reader.ReadToEnd();
 }
 
 public static class StartupBootstrap
