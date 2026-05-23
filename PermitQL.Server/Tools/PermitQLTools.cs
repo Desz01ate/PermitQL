@@ -382,13 +382,7 @@ public static partial class PermitQLTools
 
             foreach (var cell in row)
             {
-                var value = cell switch
-                {
-                    null => "NULL",
-                    string s => s,
-                    System.Collections.IEnumerable items => $"[{string.Join(", ", items.Cast<object>())}]",
-                    _ => cell.ToString(),
-                };
+                var value = FormatCellValue(cell);
                 sb.Append($" {value} |");
             }
 
@@ -398,6 +392,33 @@ public static partial class PermitQLTools
         sb.AppendLine();
         sb.Append($"{result.Rows.Count} row(s) returned.");
 
+        return sb.ToString();
+    }
+
+    private static readonly JsonSerializerOptions CompactJsonOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        WriteIndented = false,
+    };
+
+    private static string FormatCellValue(object? cell) => cell switch
+    {
+        null => "NULL",
+        string s => s,
+        bool b => b ? "true" : "false",
+        IFormattable f => f.ToString(null, System.Globalization.CultureInfo.InvariantCulture),
+        byte[] bytes => Convert.ToBase64String(bytes),
+        System.Collections.BitArray bits => FormatBitArray(bits),
+        System.Collections.IDictionary dict => JsonSerializer.Serialize(dict, CompactJsonOptions),
+        System.Collections.IEnumerable items => $"[{string.Join(", ", items.Cast<object>().Select(FormatCellValue))}]",
+        _ => JsonSerializer.Serialize(cell, CompactJsonOptions),
+    };
+
+    private static string FormatBitArray(System.Collections.BitArray bits)
+    {
+        var sb = new StringBuilder(bits.Length);
+        for (var i = 0; i < bits.Length; i++)
+            sb.Append(bits[i] ? '1' : '0');
         return sb.ToString();
     }
 
