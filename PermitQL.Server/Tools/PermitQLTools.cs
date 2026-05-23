@@ -31,7 +31,7 @@ public static partial class PermitQLTools
         [Description("The rule set key identifying which database and access rules to use")]
         string ruleSetKey,
         [Description("Response format: 'markdown' for a readable table or 'json' for structured data")]
-        string format = "markdown",
+        string format = "json",
         CancellationToken cancellationToken = default)
     {
         try
@@ -382,7 +382,13 @@ public static partial class PermitQLTools
 
             foreach (var cell in row)
             {
-                var value = cell is null ? "NULL" : cell.ToString();
+                var value = cell switch
+                {
+                    null => "NULL",
+                    string s => s,
+                    System.Collections.IEnumerable items => $"[{string.Join(", ", items.Cast<object>())}]",
+                    _ => cell.ToString(),
+                };
                 sb.Append($" {value} |");
             }
 
