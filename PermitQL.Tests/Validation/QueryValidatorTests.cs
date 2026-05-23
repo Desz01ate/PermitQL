@@ -46,16 +46,16 @@ public class QueryValidatorTests
     [Fact]
     public async Task ValidSelect_ReturnsValid()
     {
-        var parsed = _astProvider.GetOrParse("SELECT id, name FROM products");
-        var result = await _validator.ValidateAsync(parsed, MakeRules());
+        var parsed = this._astProvider.GetOrParse("SELECT id, name FROM products");
+        var result = await this._validator.ValidateAsync(parsed, MakeRules());
         Assert.Equal(ValidationResultType.Valid, result.Type);
     }
 
     [Fact]
     public async Task InsertWithMutationsDisallowed_ReturnsInvalid()
     {
-        var parsed = _astProvider.GetOrParse("INSERT INTO products (id, name) VALUES (1, 'x')");
-        var result = await _validator.ValidateAsync(parsed, MakeRules(allowedOperations: ["select"]));
+        var parsed = this._astProvider.GetOrParse("INSERT INTO products (id, name) VALUES (1, 'x')");
+        var result = await this._validator.ValidateAsync(parsed, MakeRules(allowedOperations: ["select"]));
         Assert.Equal(ValidationResultType.Invalid, result.Type);
         Assert.Contains("not allowed", result.Message!, StringComparison.OrdinalIgnoreCase);
     }
@@ -63,8 +63,8 @@ public class QueryValidatorTests
     [Fact]
     public async Task UnknownTable_ReturnsInvalid()
     {
-        var parsed = _astProvider.GetOrParse("SELECT id FROM secret_table");
-        var result = await _validator.ValidateAsync(parsed, MakeRules());
+        var parsed = this._astProvider.GetOrParse("SELECT id FROM secret_table");
+        var result = await this._validator.ValidateAsync(parsed, MakeRules());
         Assert.Equal(ValidationResultType.Invalid, result.Type);
         Assert.Contains("secret_table", result.Message!);
     }
@@ -72,8 +72,8 @@ public class QueryValidatorTests
     [Fact]
     public async Task DisallowedColumn_ReturnsInvalid()
     {
-        var parsed = _astProvider.GetOrParse("SELECT id, secret_field FROM products");
-        var result = await _validator.ValidateAsync(parsed, MakeRules());
+        var parsed = this._astProvider.GetOrParse("SELECT id, secret_field FROM products");
+        var result = await this._validator.ValidateAsync(parsed, MakeRules());
         Assert.Equal(ValidationResultType.Invalid, result.Type);
         Assert.Contains("secret_field", result.Message!);
     }
@@ -81,26 +81,26 @@ public class QueryValidatorTests
     [Fact]
     public async Task SelectStar_IsAllowed()
     {
-        var parsed = _astProvider.GetOrParse("SELECT * FROM products");
-        var result = await _validator.ValidateAsync(parsed, MakeRules());
+        var parsed = this._astProvider.GetOrParse("SELECT * FROM products");
+        var result = await this._validator.ValidateAsync(parsed, MakeRules());
         Assert.Equal(ValidationResultType.Valid, result.Type);
     }
 
     [Fact]
     public async Task JoinWithAllowedTables_ReturnsValid()
     {
-        var parsed = _astProvider.GetOrParse(
+        var parsed = this._astProvider.GetOrParse(
             "SELECT p.id, o.total_amount FROM products p JOIN orders o ON p.id = o.customer_id");
-        var result = await _validator.ValidateAsync(parsed, MakeRules());
+        var result = await this._validator.ValidateAsync(parsed, MakeRules());
         Assert.Equal(ValidationResultType.Valid, result.Type);
     }
 
     [Fact]
     public async Task JoinWithUnknownTable_ReturnsInvalid()
     {
-        var parsed = _astProvider.GetOrParse(
+        var parsed = this._astProvider.GetOrParse(
             "SELECT p.id FROM products p JOIN secrets s ON p.id = s.product_id");
-        var result = await _validator.ValidateAsync(parsed, MakeRules());
+        var result = await this._validator.ValidateAsync(parsed, MakeRules());
         Assert.Equal(ValidationResultType.Invalid, result.Type);
         Assert.Contains("secrets", result.Message!);
     }
@@ -123,8 +123,8 @@ public class QueryValidatorTests
                 },
             },
         };
-        var parsed = _astProvider.GetOrParse("SELECT password_hash FROM users");
-        var result = await _validator.ValidateAsync(parsed, rules);
+        var parsed = this._astProvider.GetOrParse("SELECT password_hash FROM users");
+        var result = await this._validator.ValidateAsync(parsed, rules);
         Assert.Equal(ValidationResultType.Invalid, result.Type);
         Assert.Contains("password_hash", result.Message!);
     }
@@ -147,24 +147,24 @@ public class QueryValidatorTests
                 },
             },
         };
-        var parsed = _astProvider.GetOrParse("SELECT id, email FROM users");
-        var result = await _validator.ValidateAsync(parsed, rules);
+        var parsed = this._astProvider.GetOrParse("SELECT id, email FROM users");
+        var result = await this._validator.ValidateAsync(parsed, rules);
         Assert.Equal(ValidationResultType.Valid, result.Type);
     }
 
     [Fact]
     public async Task SchemaQualifiedTable_MatchesRules()
     {
-        var parsed = _astProvider.GetOrParse("SELECT id FROM public.products");
-        var result = await _validator.ValidateAsync(parsed, MakeRules());
+        var parsed = this._astProvider.GetOrParse("SELECT id FROM public.products");
+        var result = await this._validator.ValidateAsync(parsed, MakeRules());
         Assert.Equal(ValidationResultType.Valid, result.Type);
     }
 
     [Fact]
     public async Task WhereClauseWithDisallowedColumn_ReturnsInvalid()
     {
-        var parsed = _astProvider.GetOrParse("SELECT id FROM products WHERE secret_field = 'x'");
-        var result = await _validator.ValidateAsync(parsed, MakeRules());
+        var parsed = this._astProvider.GetOrParse("SELECT id FROM products WHERE secret_field = 'x'");
+        var result = await this._validator.ValidateAsync(parsed, MakeRules());
         Assert.Equal(ValidationResultType.Invalid, result.Type);
         Assert.Contains("secret_field", result.Message!);
     }
@@ -194,9 +194,9 @@ public class QueryValidatorTests
                 },
             },
         };
-        var parsed = _astProvider.GetOrParse("SELECT id FROM users");
+        var parsed = this._astProvider.GetOrParse("SELECT id FROM users");
         await Assert.ThrowsAsync<PermitQL.Exceptions.AmbiguousTableException>(
-            () => _validator.ValidateAsync(parsed, rules).AsTask());
+            () => this._validator.ValidateAsync(parsed, rules).AsTask());
     }
 
     [Fact]
@@ -218,9 +218,9 @@ public class QueryValidatorTests
                 },
             },
         };
-        var parsed = _astProvider.GetOrParse(
+        var parsed = this._astProvider.GetOrParse(
             "SELECT o.id FROM orders o JOIN order_items oi ON o.id = oi.order_id ORDER BY o.total_amount");
-        var result = await _validator.ValidateAsync(parsed, rules);
+        var result = await this._validator.ValidateAsync(parsed, rules);
         Assert.Equal(ValidationResultType.Valid, result.Type);
     }
 
@@ -243,9 +243,9 @@ public class QueryValidatorTests
                 },
             },
         };
-        var parsed = _astProvider.GetOrParse(
+        var parsed = this._astProvider.GetOrParse(
             "SELECT o.id FROM orders o JOIN order_items oi ON o.id = oi.order_id ORDER BY o.total_amount");
-        var result = await _validator.ValidateAsync(parsed, rules);
+        var result = await this._validator.ValidateAsync(parsed, rules);
         Assert.Equal(ValidationResultType.Invalid, result.Type);
         Assert.Contains("total_amount", result.Message!);
     }
@@ -255,16 +255,16 @@ public class QueryValidatorTests
     [Fact]
     public async Task InsertAllowedByGlobal_ReturnsValid()
     {
-        var parsed = _astProvider.GetOrParse("INSERT INTO products (id, name) VALUES (1, 'x')");
-        var result = await _validator.ValidateAsync(parsed, MakeRules(allowedOperations: ["select", "insert"]));
+        var parsed = this._astProvider.GetOrParse("INSERT INTO products (id, name) VALUES (1, 'x')");
+        var result = await this._validator.ValidateAsync(parsed, MakeRules(allowedOperations: ["select", "insert"]));
         Assert.Equal(ValidationResultType.Valid, result.Type);
     }
 
     [Fact]
     public async Task UpdateDeniedByGlobal_ReturnsInvalid()
     {
-        var parsed = _astProvider.GetOrParse("UPDATE products SET name = 'y' WHERE id = 1");
-        var result = await _validator.ValidateAsync(parsed, MakeRules(allowedOperations: ["select", "insert"]));
+        var parsed = this._astProvider.GetOrParse("UPDATE products SET name = 'y' WHERE id = 1");
+        var result = await this._validator.ValidateAsync(parsed, MakeRules(allowedOperations: ["select", "insert"]));
         Assert.Equal(ValidationResultType.Invalid, result.Type);
         Assert.Contains("Update", result.Message!);
         Assert.Contains("not allowed", result.Message!, StringComparison.OrdinalIgnoreCase);
@@ -273,8 +273,8 @@ public class QueryValidatorTests
     [Fact]
     public async Task DeleteDeniedByGlobal_ReturnsInvalid()
     {
-        var parsed = _astProvider.GetOrParse("DELETE FROM products WHERE id = 1");
-        var result = await _validator.ValidateAsync(parsed, MakeRules(allowedOperations: ["select"]));
+        var parsed = this._astProvider.GetOrParse("DELETE FROM products WHERE id = 1");
+        var result = await this._validator.ValidateAsync(parsed, MakeRules(allowedOperations: ["select"]));
         Assert.Equal(ValidationResultType.Invalid, result.Type);
         Assert.Contains("Delete", result.Message!);
     }
@@ -301,8 +301,8 @@ public class QueryValidatorTests
                 },
             },
         };
-        var parsed = _astProvider.GetOrParse("INSERT INTO products (id, name) VALUES (1, 'x')");
-        var result = await _validator.ValidateAsync(parsed, rules);
+        var parsed = this._astProvider.GetOrParse("INSERT INTO products (id, name) VALUES (1, 'x')");
+        var result = await this._validator.ValidateAsync(parsed, rules);
         Assert.Equal(ValidationResultType.Invalid, result.Type);
         Assert.Contains("Insert", result.Message!);
         Assert.Contains("products", result.Message!);
@@ -330,8 +330,8 @@ public class QueryValidatorTests
                 },
             },
         };
-        var parsed = _astProvider.GetOrParse("INSERT INTO products (id, name) VALUES (1, 'x')");
-        var result = await _validator.ValidateAsync(parsed, rules);
+        var parsed = this._astProvider.GetOrParse("INSERT INTO products (id, name) VALUES (1, 'x')");
+        var result = await this._validator.ValidateAsync(parsed, rules);
         Assert.Equal(ValidationResultType.Valid, result.Type);
     }
 
@@ -358,16 +358,16 @@ public class QueryValidatorTests
             },
         };
 
-        var insertParsed = _astProvider.GetOrParse("INSERT INTO audit_log (id) VALUES (1)");
-        var insertResult = await _validator.ValidateAsync(insertParsed, rules);
+        var insertParsed = this._astProvider.GetOrParse("INSERT INTO audit_log (id) VALUES (1)");
+        var insertResult = await this._validator.ValidateAsync(insertParsed, rules);
         Assert.Equal(ValidationResultType.Valid, insertResult.Type);
 
-        var updateParsed = _astProvider.GetOrParse("UPDATE audit_log SET id = 2 WHERE id = 1");
-        var updateResult = await _validator.ValidateAsync(updateParsed, rules);
+        var updateParsed = this._astProvider.GetOrParse("UPDATE audit_log SET id = 2 WHERE id = 1");
+        var updateResult = await this._validator.ValidateAsync(updateParsed, rules);
         Assert.Equal(ValidationResultType.Invalid, updateResult.Type);
 
-        var deleteParsed = _astProvider.GetOrParse("DELETE FROM audit_log WHERE id = 1");
-        var deleteResult = await _validator.ValidateAsync(deleteParsed, rules);
+        var deleteParsed = this._astProvider.GetOrParse("DELETE FROM audit_log WHERE id = 1");
+        var deleteResult = await this._validator.ValidateAsync(deleteParsed, rules);
         Assert.Equal(ValidationResultType.Invalid, deleteResult.Type);
     }
 
@@ -398,12 +398,12 @@ public class QueryValidatorTests
             },
         };
 
-        var insertProducts = _astProvider.GetOrParse("INSERT INTO products (id, name) VALUES (1, 'x')");
-        var result1 = await _validator.ValidateAsync(insertProducts, rules);
+        var insertProducts = this._astProvider.GetOrParse("INSERT INTO products (id, name) VALUES (1, 'x')");
+        var result1 = await this._validator.ValidateAsync(insertProducts, rules);
         Assert.Equal(ValidationResultType.Invalid, result1.Type);
 
-        var insertOrders = _astProvider.GetOrParse("INSERT INTO orders (id, customer_id) VALUES (1, 2)");
-        var result2 = await _validator.ValidateAsync(insertOrders, rules);
+        var insertOrders = this._astProvider.GetOrParse("INSERT INTO orders (id, customer_id) VALUES (1, 2)");
+        var result2 = await this._validator.ValidateAsync(insertOrders, rules);
         Assert.Equal(ValidationResultType.Valid, result2.Type);
     }
 
@@ -426,12 +426,12 @@ public class QueryValidatorTests
             },
         };
 
-        var insertParsed = _astProvider.GetOrParse("INSERT INTO products (id, name) VALUES (1, 'x')");
-        var insertResult = await _validator.ValidateAsync(insertParsed, rules);
+        var insertParsed = this._astProvider.GetOrParse("INSERT INTO products (id, name) VALUES (1, 'x')");
+        var insertResult = await this._validator.ValidateAsync(insertParsed, rules);
         Assert.Equal(ValidationResultType.Valid, insertResult.Type);
 
-        var deleteParsed = _astProvider.GetOrParse("DELETE FROM products WHERE id = 1");
-        var deleteResult = await _validator.ValidateAsync(deleteParsed, rules);
+        var deleteParsed = this._astProvider.GetOrParse("DELETE FROM products WHERE id = 1");
+        var deleteResult = await this._validator.ValidateAsync(deleteParsed, rules);
         Assert.Equal(ValidationResultType.Invalid, deleteResult.Type);
     }
 }

@@ -13,8 +13,7 @@ public class QueryPipelineTests
     private readonly IQueryRewriter _rewriter = Substitute.For<IQueryRewriter>();
     private readonly IDataAccessor _dataAccessor = Substitute.For<IDataAccessor>();
 
-    private QueryPipeline CreatePipeline() => new(
-        _rulesProvider, _astProvider, _validator, _rewriter, _dataAccessor);
+    private QueryPipeline CreatePipeline() => new(this._rulesProvider, this._astProvider, this._validator, this._rewriter, this._dataAccessor);
 
     private static RuleSet MakeRules() => new()
     {
@@ -34,17 +33,17 @@ public class QueryPipelineTests
     {
         var rules = MakeRules();
         var parsed = MakeParsedQuery();
-        _rulesProvider.GetRuleSet("test").Returns(rules);
-        _astProvider.GetOrParse("SELECT 1").Returns(parsed);
-        _validator.ValidateAsync(parsed, rules, Arg.Any<CancellationToken>())
-                  .Returns(new ValidationResult(ValidationResultType.Valid, null));
-        _rewriter.RewriteAsync(parsed, rules, Arg.Any<CancellationToken>())
-                 .Returns("SELECT 1 LIMIT 100");
-        _dataAccessor.GetColumnDefinitionAsync("SELECT 1 LIMIT 100", Arg.Any<CancellationToken>())
-                     .Returns(new List<ColumnDefinition> { new(0, "col", "integer", false) });
-        _dataAccessor.QueryAsync("SELECT 1 LIMIT 100", Arg.Any<CancellationToken>())
-                     .Returns(ToAsyncEnumerable(new object?[] { 1 }));
-        var pipeline = CreatePipeline();
+        this._rulesProvider.GetRuleSet("test").Returns(rules);
+        this._astProvider.GetOrParse("SELECT 1").Returns(parsed);
+        this._validator.ValidateAsync(parsed, rules, Arg.Any<CancellationToken>())
+            .Returns(new ValidationResult(ValidationResultType.Valid, null));
+        this._rewriter.RewriteAsync(parsed, rules, Arg.Any<CancellationToken>())
+            .Returns("SELECT 1 LIMIT 100");
+        this._dataAccessor.GetColumnDefinitionAsync("SELECT 1 LIMIT 100", Arg.Any<CancellationToken>())
+            .Returns(new List<ColumnDefinition> { new(0, "col", "integer", false) });
+        this._dataAccessor.QueryAsync("SELECT 1 LIMIT 100", Arg.Any<CancellationToken>())
+            .Returns(ToAsyncEnumerable(new object?[] { 1 }));
+        var pipeline = this.CreatePipeline();
         var result = await pipeline.ExecuteAsync("SELECT 1", "test");
         Assert.Single(result.Columns);
         Assert.Single(result.Rows);
@@ -55,11 +54,11 @@ public class QueryPipelineTests
     {
         var rules = MakeRules();
         var parsed = MakeParsedQuery();
-        _rulesProvider.GetRuleSet("test").Returns(rules);
-        _astProvider.GetOrParse("SELECT 1").Returns(parsed);
-        _validator.ValidateAsync(parsed, rules, Arg.Any<CancellationToken>())
-                  .Returns(new ValidationResult(ValidationResultType.Invalid, "not allowed"));
-        var pipeline = CreatePipeline();
+        this._rulesProvider.GetRuleSet("test").Returns(rules);
+        this._astProvider.GetOrParse("SELECT 1").Returns(parsed);
+        this._validator.ValidateAsync(parsed, rules, Arg.Any<CancellationToken>())
+            .Returns(new ValidationResult(ValidationResultType.Invalid, "not allowed"));
+        var pipeline = this.CreatePipeline();
         var ex = await Assert.ThrowsAsync<QueryValidationFailedException>(
             () => pipeline.ExecuteAsync("SELECT 1", "test"));
         Assert.Contains("not allowed", ex.Message);
@@ -75,20 +74,20 @@ public class QueryPipelineTests
             ExposedSchemas = new Dictionary<string, SchemaRule>(),
         };
         var parsed = MakeParsedQuery();
-        _rulesProvider.GetRuleSet("test").Returns(rules);
-        _astProvider.GetOrParse("SELECT 1").Returns(parsed);
-        _validator.ValidateAsync(parsed, rules, Arg.Any<CancellationToken>())
-                  .Returns(new ValidationResult(ValidationResultType.Valid, null));
-        _rewriter.RewriteAsync(parsed, rules, Arg.Any<CancellationToken>())
-                 .Returns("SELECT 1");
-        _dataAccessor.GetColumnDefinitionAsync("SELECT 1", Arg.Any<CancellationToken>())
-                     .Returns(call => new ValueTask<IReadOnlyList<ColumnDefinition>>(
-                         Task.Run(async () =>
-                         {
-                             await Task.Delay(5000, call.Arg<CancellationToken>());
-                             return (IReadOnlyList<ColumnDefinition>)new List<ColumnDefinition>();
-                         }, call.Arg<CancellationToken>())));
-        var pipeline = CreatePipeline();
+        this._rulesProvider.GetRuleSet("test").Returns(rules);
+        this._astProvider.GetOrParse("SELECT 1").Returns(parsed);
+        this._validator.ValidateAsync(parsed, rules, Arg.Any<CancellationToken>())
+            .Returns(new ValidationResult(ValidationResultType.Valid, null));
+        this._rewriter.RewriteAsync(parsed, rules, Arg.Any<CancellationToken>())
+            .Returns("SELECT 1");
+        this._dataAccessor.GetColumnDefinitionAsync("SELECT 1", Arg.Any<CancellationToken>())
+            .Returns(call => new ValueTask<IReadOnlyList<ColumnDefinition>>(
+                Task.Run(async () =>
+                {
+                    await Task.Delay(5000, call.Arg<CancellationToken>());
+                    return (IReadOnlyList<ColumnDefinition>)new List<ColumnDefinition>();
+                }, call.Arg<CancellationToken>())));
+        var pipeline = this.CreatePipeline();
         await Assert.ThrowsAnyAsync<OperationCanceledException>(
             () => pipeline.ExecuteAsync("SELECT 1", "test"));
     }

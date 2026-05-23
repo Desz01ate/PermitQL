@@ -13,17 +13,17 @@ public enum StatementKind
 
 public record QualifiedTableName(string? Schema, string Table)
 {
-    public override string ToString() => Schema is not null ? $"{Schema}.{Table}" : Table;
+    public override string ToString() => this.Schema is not null ? $"{this.Schema}.{this.Table}" : this.Table;
 }
 
 public record QualifiedColumnName(string? Schema, string? Table, string Column)
 {
     public override string ToString() =>
-        (Schema, Table) switch
+        (this.Schema, this.Table) switch
         {
-            (not null, not null) => $"{Schema}.{Table}.{Column}",
-            (null, not null) => $"{Table}.{Column}",
-            _ => Column,
+            (not null, not null) => $"{this.Schema}.{this.Table}.{this.Column}",
+            (null, not null) => $"{this.Table}.{this.Column}",
+            _ => this.Column,
         };
 }
 
@@ -34,9 +34,8 @@ public record ParsedQuery(
     StatementKind StatementType,
     QualifiedTableName? MutationTarget = null)
 {
-    public Statement.Select AsSelect() =>
-        Statement as Statement.Select
+    public Statement.Select AsSelect() => this.Statement as Statement.Select
         ?? throw new InvalidOperationException("Statement is not a SELECT.");
 
-    public Query Query => AsSelect().Query;
+    public Query Query => this.AsSelect().Query;
 }

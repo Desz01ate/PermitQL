@@ -24,7 +24,7 @@ public class GlobalLimits
 
     public bool IsOperationAllowed(StatementKind kind)
     {
-        return AllowedOperations.Contains(KindToString(kind), OpComparer);
+        return this.AllowedOperations.Contains(KindToString(kind), OpComparer);
     }
 
     internal static string KindToString(StatementKind kind) => kind switch
@@ -58,22 +58,22 @@ public class TableRule
 
     public Dictionary<string, string> ColumnSemanticDescriptions { get; init; } = [];
 
-    public bool IsWildcard => AllowedColumns is ["*"];
+    public bool IsWildcard => this.AllowedColumns is ["*"];
 
     public bool IsOperationAllowed(StatementKind kind, GlobalLimits globalLimits)
     {
-        var ops = AllowedOperations ?? globalLimits.AllowedOperations;
+        var ops = this.AllowedOperations ?? globalLimits.AllowedOperations;
         return ops.Contains(GlobalLimits.KindToString(kind), OpComparer);
     }
 
     public bool IsColumnAllowed(string column)
     {
-        if (!IsWildcard)
-            return AllowedColumns.Contains(column, StringComparer.OrdinalIgnoreCase);
+        if (!this.IsWildcard)
+            return this.AllowedColumns.Contains(column, StringComparer.OrdinalIgnoreCase);
 
-        if (DeniedColumns is null)
+        if (this.DeniedColumns is null)
             return true;
 
-        return !DeniedColumns.Contains(column, StringComparer.OrdinalIgnoreCase);
+        return !this.DeniedColumns.Contains(column, StringComparer.OrdinalIgnoreCase);
     }
 }

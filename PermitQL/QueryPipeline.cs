@@ -19,11 +19,11 @@ public sealed class QueryPipeline : IQueryPipeline
         IQueryRewriter rewriter,
         IDataAccessor dataAccessor)
     {
-        _rulesProvider = rulesProvider;
-        _astProvider = astProvider;
-        _validator = validator;
-        _rewriter = rewriter;
-        _dataAccessor = dataAccessor;
+        this._rulesProvider = rulesProvider;
+        this._astProvider = astProvider;
+        this._validator = validator;
+        this._rewriter = rewriter;
+        this._dataAccessor = dataAccessor;
     }
 
     public async Task<QueryResult> ExecuteAsync(
@@ -31,21 +31,29 @@ public sealed class QueryPipeline : IQueryPipeline
         string ruleSetKey,
         CancellationToken cancellationToken = default)
     {
-        var rules = _rulesProvider.GetRuleSet(ruleSetKey);
-        var parsed = _astProvider.GetOrParse(query);
-        var validation = await _validator.ValidateAsync(parsed, rules, cancellationToken);
+        var rules = this._rulesProvider.GetRuleSet(ruleSetKey);
+        var parsed = this._astProvider.GetOrParse(query);
+        var validation = await this._validator.ValidateAsync(parsed, rules, cancellationToken);
+
         if (validation.Type is ValidationResultType.Invalid)
+        {
             throw new QueryValidationFailedException(validation.Message ?? "Query validation failed.");
+        }
 
         using var timeoutCts = new CancellationTokenSource(rules.GlobalLimits.TimeoutMs);
         using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);
         var ct = linkedCts.Token;
 
-        var rewrittenSql = await _rewriter.RewriteAsync(parsed, rules, ct);
-        var columns = await _dataAccessor.GetColumnDefinitionAsync(rewrittenSql, ct);
+        var rewrittenSql = await this._rewriter.RewriteAsync(parsed, rules, ct);
+
+        var columns = await this._dataAccessor.GetColumnDefinitionAsync(rewrittenSql, ct);
         var rows = new List<object?[]>();
-        await foreach (var row in _dataAccessor.QueryAsync(rewrittenSql, ct))
+
+        await foreach (var row in this._dataAccessor.QueryAsync(rewrittenSql, ct))
+        {
             rows.Add(row);
+        }
+
         return new QueryResult(columns, rows);
     }
 }

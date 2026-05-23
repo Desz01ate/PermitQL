@@ -14,20 +14,19 @@ public sealed class SqlAstProvider : ISqlAstProvider
 
     public SqlAstProvider(int maxCacheSize = 10_000)
     {
-        _maxCacheSize = maxCacheSize;
+        this._maxCacheSize = maxCacheSize;
     }
 
     public ParsedQuery GetOrParse(string query)
     {
-        if (_cache.TryGetValue(query, out var cached))
+        if (this._cache.TryGetValue(query, out var cached))
             return cached;
 
         var parsed = Parse(query);
 
-        if (_cache.Count >= _maxCacheSize)
-            _cache.Clear();
+        if (this._cache.Count >= this._maxCacheSize) this._cache.Clear();
 
-        _cache.TryAdd(query, parsed);
+        this._cache.TryAdd(query, parsed);
         return parsed;
     }
 
