@@ -25,6 +25,7 @@ public static partial class PermitQLTools
      Description(
          "Execute a SQL query against a governed database. The query is validated against access rules and rewritten to enforce row filters and limits before execution.")]
     public static async Task<string> Query(
+        IRulesProvider rulesProvider,
         IQueryPipeline pipeline,
         [Description("The SQL SELECT query to execute")]
         string query,
@@ -41,9 +42,10 @@ public static partial class PermitQLTools
                 format.Equals("json", StringComparison.OrdinalIgnoreCase)
                     ? FormatAsJson(succ)
                     : FormatAsMarkdown(succ),
-            static err =>
+            err =>
             {
-                var (message, type, _) = ErrorHandler.Classify(err);
+                var ruleSet = rulesProvider.GetRuleSet(ruleSetKey);
+                var (message, type, _) = ErrorHandler.Classify(err, ruleSet);
                 return $"Error ({type}): {message}";
             });
     }
@@ -128,7 +130,8 @@ public static partial class PermitQLTools
         }
         catch (Exception ex)
         {
-            var (message, type, _) = ErrorHandler.Classify(ex);
+            var ruleSet = rulesProvider.GetRuleSet(ruleSetKey);
+            var (message, type, _) = ErrorHandler.Classify(ex, ruleSet);
             return $"Error ({type}): {message}";
         }
     }

@@ -19,6 +19,7 @@ public class QueryPipelineTests
     {
         Version = "1.0", Database = "test",
         GlobalLimits = new GlobalLimits { MaxRowsReturned = 100, TimeoutMs = 5000, AllowedOperations = ["select"] },
+        ExposeDetailedErrors = false,
         ExposedSchemas = new Dictionary<string, SchemaRule>(),
     };
 
@@ -74,6 +75,7 @@ public class QueryPipelineTests
         {
             Version = "1.0", Database = "test",
             GlobalLimits = new GlobalLimits { MaxRowsReturned = 100, TimeoutMs = 1, AllowedOperations = ["select"] },
+            ExposeDetailedErrors = false,
             ExposedSchemas = new Dictionary<string, SchemaRule>(),
         };
         var parsed = MakeParsedQuery();

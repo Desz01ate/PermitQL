@@ -27,6 +27,7 @@ public class QueryRewriterTests
                 TimeoutMs = 1000,
                 AllowedOperations = ["select"],
             },
+            ExposeDetailedErrors = false,
             ExposedSchemas = schemas ?? new Dictionary<string, SchemaRule>
             {
                 ["public"] = new SchemaRule
@@ -87,6 +88,17 @@ public class QueryRewriterTests
     }
 
     [Fact]
+    public async Task SetOperation_AppliesRowFilterAndLimit()
+    {
+        var parsed = this._astProvider.GetOrParse(
+            "SELECT id FROM products UNION ALL SELECT id FROM products");
+        var rewriter = this.CreateRewriter();
+        var sql = await rewriter.RewriteAsync(parsed, MakeRules(maxRows: 50));
+        Assert.Contains("is_active", sql, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("LIMIT 50", sql, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task KeepsLimit_WhenExistingLimitBelowMax()
     {
         var parsed = this._astProvider.GetOrParse("SELECT id FROM products LIMIT 10");
@@ -114,6 +126,7 @@ public class QueryRewriterTests
         {
             Version = "1.0", Database = "test",
             GlobalLimits = new GlobalLimits { MaxRowsReturned = 100, TimeoutMs = 1000, AllowedOperations = ["select"] },
+            ExposeDetailedErrors = false,
             ExposedSchemas = new Dictionary<string, SchemaRule>
             {
                 ["public"] = new SchemaRule
@@ -134,6 +147,53 @@ public class QueryRewriterTests
                 new(2, "password_hash", "text", false),
             });
         var parsed = this._astProvider.GetOrParse("SELECT * FROM users");
+        var rewriter = this.CreateRewriter();
+        var sql = await rewriter.RewriteAsync(parsed, wildcardRules);
+        Assert.DoesNotContain("*", sql);
+        Assert.Contains("id", sql, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("email", sql, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("password_hash", sql, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Cte_AppliesRowFilterToInnerQuery()
+    {
+        var parsed = this._astProvider.GetOrParse(
+            "WITH active_products AS (SELECT id FROM products) SELECT * FROM active_products");
+        var rewriter = this.CreateRewriter();
+        var sql = await rewriter.RewriteAsync(parsed, MakeRules());
+        Assert.Contains("is_active", sql, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task CteWithWildcardRules_ExcludesDeniedColumns()
+    {
+        var wildcardRules = new RuleSet
+        {
+            Version = "1.0", Database = "test",
+            GlobalLimits = new GlobalLimits { MaxRowsReturned = 100, TimeoutMs = 1000, AllowedOperations = ["select"] },
+            ExposeDetailedErrors = false,
+            ExposedSchemas = new Dictionary<string, SchemaRule>
+            {
+                ["public"] = new SchemaRule
+                {
+                    Tables = new Dictionary<string, TableRule>
+                    {
+                        ["users"] = new TableRule { AllowedColumns = ["*"], DeniedColumns = ["password_hash"] },
+                    },
+                },
+            },
+        };
+        this._dataAccessor
+            .GetColumnDefinitionAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(new List<ColumnDefinition>
+            {
+                new(0, "id", "integer", false),
+                new(1, "email", "text", false),
+                new(2, "password_hash", "text", false),
+            });
+        var parsed = this._astProvider.GetOrParse(
+            "WITH visible_users AS (SELECT * FROM users) SELECT * FROM visible_users");
         var rewriter = this.CreateRewriter();
         var sql = await rewriter.RewriteAsync(parsed, wildcardRules);
         Assert.DoesNotContain("*", sql);
