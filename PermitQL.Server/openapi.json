@@ -1,0 +1,261 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "PermitQL API",
+    "description": "A policy-driven SQL query gateway. PermitQL validates and executes SQL queries against configured rule sets, enforcing access control and query constraints.",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/api/databases": {
+      "get": {
+        "operationId": "listDatabases",
+        "summary": "List available databases",
+        "description": "Returns the list of available rule-set keys that can be queried.",
+        "responses": {
+          "200": {
+            "description": "A list of available database keys.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/databases/{key}": {
+      "get": {
+        "operationId": "describeDatabase",
+        "summary": "Describe a database",
+        "description": "Returns a detailed description of the database schema, permitted tables, columns, and validation capabilities for a given rule-set key.",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "description": "The rule-set key identifying the database configuration.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Database schema description.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The specified rule-set key was not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected error occurred.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/databases/{ruleSetKey}/query": {
+      "post": {
+        "operationId": "executeQuery",
+        "summary": "Execute a SQL query",
+        "description": "Validates and executes a SQL query against the specified rule set. The query is checked against configured policies before execution.",
+        "parameters": [
+          {
+            "name": "ruleSetKey",
+            "in": "path",
+            "required": true,
+            "description": "The rule-set key identifying which database and policies to use.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QueryRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Query executed successfully.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QueryResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The query failed validation, parsing, or contained ambiguous table references.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "validation_error": {
+                    "summary": "Query validation failure",
+                    "value": {
+                      "error": "Query references a table that is not permitted.",
+                      "type": "validation_error"
+                    }
+                  },
+                  "parse_error": {
+                    "summary": "SQL parse failure",
+                    "value": {
+                      "error": "Syntax error near 'SELEC'.",
+                      "type": "parse_error"
+                    }
+                  },
+                  "ambiguous_table": {
+                    "summary": "Ambiguous table reference",
+                    "value": {
+                      "error": "Table 'users' is ambiguous across schemas.",
+                      "type": "ambiguous_table"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The specified rule-set key was not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "408": {
+            "description": "Query execution timed out.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected error occurred.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "QueryRequest": {
+        "type": "object",
+        "required": ["query"],
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "The SQL query to validate and execute."
+          }
+        }
+      },
+      "QueryResponse": {
+        "type": "object",
+        "properties": {
+          "columns": {
+            "type": "array",
+            "description": "Metadata for each column in the result set.",
+            "items": {
+              "$ref": "#/components/schemas/ColumnInfo"
+            }
+          },
+          "rows": {
+            "type": "array",
+            "description": "The result rows, each represented as an array of values.",
+            "items": {
+              "type": "array",
+              "items": {}
+            }
+          },
+          "rowCount": {
+            "type": "integer",
+            "description": "The number of rows returned."
+          }
+        }
+      },
+      "ColumnInfo": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "The column name."
+          },
+          "type": {
+            "type": "string",
+            "description": "The column data type."
+          },
+          "isNullable": {
+            "type": "boolean",
+            "description": "Whether the column allows null values."
+          }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string",
+            "description": "A human-readable error message."
+          },
+          "type": {
+            "type": "string",
+            "description": "The error classification.",
+            "enum": [
+              "validation_error",
+              "parse_error",
+              "ambiguous_table",
+              "not_found",
+              "timeout",
+              "internal_error"
+            ]
+          }
+        }
+      }
+    }
+  }
+}
