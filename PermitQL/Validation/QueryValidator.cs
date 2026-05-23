@@ -26,7 +26,15 @@ public sealed class QueryValidator : IQueryValidator
         if (tableCheck is not null)
             return new ValueTask<ValidationResult>(tableCheck);
 
-        // 3. Mutation permission check (for DML only)
+        // 3. CTE column access check
+        if (query.CteDefinitions is { } cteDefs)
+        {
+            var cteColumnCheck = ValidateCteColumnAccess(cteDefs, resolvedTables);
+            if (cteColumnCheck is not null)
+                return new ValueTask<ValidationResult>(cteColumnCheck);
+        }
+
+        // 4. Mutation permission check (for DML only)
         if (query.StatementType != StatementKind.Select)
         {
             var mutationCheck = ValidateMutationPermissions(query, rules, resolvedTables);
@@ -34,7 +42,7 @@ public sealed class QueryValidator : IQueryValidator
                 return new ValueTask<ValidationResult>(mutationCheck);
         }
 
-        // 4. Column access check (SELECT only)
+        // 5. Column access check (SELECT only)
         if (query.StatementType == StatementKind.Select)
         {
             var columnCheck = ValidateColumnAccess(query, rules, resolvedTables, aliasMap);
@@ -144,6 +152,12 @@ public sealed class QueryValidator : IQueryValidator
     {
         var aliasMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
+        if (query.CteDefinitions is { } ctes)
+        {
+            foreach (var cte in ctes)
+                aliasMap[cte.Name] = cte.Name;
+        }
+
         if (query.Statement is not Statement.Select selectStmt)
             return aliasMap;
 
@@ -191,18 +205,63 @@ public sealed class QueryValidator : IQueryValidator
         aliasMap[tableName] = tableName;
     }
 
+    private static ValidationResult? ValidateCteColumnAccess(
+        IReadOnlyList<CteDefinition> cteDefinitions,
+        Dictionary<string, ResolvedTable> resolvedTables)
+    {
+        foreach (var cte in cteDefinitions)
+        {
+            foreach (var column in cte.InnerReferencedColumns)
+            {
+                if (column.Table is not null)
+                {
+                    var tableRef = column.Table;
+
+                    if (cte.InnerAliasMap.TryGetValue(tableRef, out var actualTableName))
+                        tableRef = actualTableName;
+
+                    if (!resolvedTables.TryGetValue(tableRef, out var resolved))
+                        continue;
+
+                    if (!resolved.Rule.IsColumnAllowed(column.Column))
+                    {
+                        return new ValidationResult(
+                            ValidationResultType.Invalid,
+                            $"Column '{column.Column}' is not allowed on table '{resolved.Table}' (referenced in CTE '{cte.Name}').");
+                    }
+                }
+                else
+                {
+                    var allowedByAny = resolvedTables.Values
+                                                     .Any(rt => rt.Rule.IsColumnAllowed(column.Column));
+
+                    if (!allowedByAny)
+                    {
+                        return new ValidationResult(
+                            ValidationResultType.Invalid,
+                            $"Column '{column.Column}' is not allowed by any referenced table (referenced in CTE '{cte.Name}').");
+                    }
+                }
+            }
+        }
+
+        return null;
+    }
+
     private static ValidationResult? ValidateColumnAccess(
         ParsedQuery query,
         RuleSet rules,
         Dictionary<string, ResolvedTable> resolvedTables,
         Dictionary<string, string> aliasMap)
     {
+        var cteNames = query.CteDefinitions is { } ctes
+            ? new HashSet<string>(ctes.Select(c => c.Name), StringComparer.OrdinalIgnoreCase)
+            : null;
+
         foreach (var column in query.ReferencedColumns)
         {
             if (column.Table is not null)
             {
-                // Table-qualified column (e.g., p.id or products.id)
-                // Resolve the alias/table reference to actual table name
                 var tableRef = column.Table;
 
                 if (aliasMap.TryGetValue(tableRef, out var actualTableName))
@@ -210,7 +269,9 @@ public sealed class QueryValidator : IQueryValidator
                     tableRef = actualTableName;
                 }
 
-                // Find the resolved table rule
+                if (cteNames is not null && cteNames.Contains(tableRef))
+                    continue;
+
                 if (!resolvedTables.TryGetValue(tableRef, out var resolved))
                 {
                     return new ValidationResult(
@@ -227,7 +288,6 @@ public sealed class QueryValidator : IQueryValidator
             }
             else
             {
-                // Unqualified column — must be allowed by at least one referenced table
                 var allowedByAny = resolvedTables.Values
                                                  .Any(rt => rt.Rule.IsColumnAllowed(column.Column));
 

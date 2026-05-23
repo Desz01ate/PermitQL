@@ -27,12 +27,20 @@ public record QualifiedColumnName(string? Schema, string? Table, string Column)
         };
 }
 
+public record CteDefinition(
+    string Name,
+    IReadOnlyList<string>? ColumnAliases,
+    IReadOnlySet<QualifiedTableName> InnerReferencedTables,
+    IReadOnlySet<QualifiedColumnName> InnerReferencedColumns,
+    IReadOnlyDictionary<string, string> InnerAliasMap);
+
 public record ParsedQuery(
     Statement Statement,
     IReadOnlySet<QualifiedTableName> ReferencedTables,
     IReadOnlySet<QualifiedColumnName> ReferencedColumns,
     StatementKind StatementType,
-    QualifiedTableName? MutationTarget = null)
+    QualifiedTableName? MutationTarget = null,
+    IReadOnlyList<CteDefinition>? CteDefinitions = null)
 {
     public Statement.Select AsSelect() => this.Statement as Statement.Select
         ?? throw new InvalidOperationException("Statement is not a SELECT.");

@@ -434,4 +434,92 @@ public class QueryValidatorTests
         var deleteResult = await this._validator.ValidateAsync(deleteParsed, rules);
         Assert.Equal(ValidationResultType.Invalid, deleteResult.Type);
     }
+
+    // --- CTE validation tests ---
+
+    [Fact]
+    public async Task Cte_WithAllowedTables_ReturnsValid()
+    {
+        var parsed = this._astProvider.GetOrParse(
+            "WITH cte AS (SELECT id, name FROM products) SELECT * FROM cte");
+        var result = await this._validator.ValidateAsync(parsed, MakeRules());
+        Assert.Equal(ValidationResultType.Valid, result.Type);
+    }
+
+    [Fact]
+    public async Task Cte_ReferencingDisallowedTable_ReturnsInvalid()
+    {
+        var parsed = this._astProvider.GetOrParse(
+            "WITH cte AS (SELECT id FROM secret_table) SELECT * FROM cte");
+        var result = await this._validator.ValidateAsync(parsed, MakeRules());
+        Assert.Equal(ValidationResultType.Invalid, result.Type);
+        Assert.Contains("secret_table", result.Message!);
+    }
+
+    [Fact]
+    public async Task Cte_ReferencingDisallowedColumn_ReturnsInvalid()
+    {
+        var parsed = this._astProvider.GetOrParse(
+            "WITH cte AS (SELECT secret_field FROM products) SELECT * FROM cte");
+        var result = await this._validator.ValidateAsync(parsed, MakeRules());
+        Assert.Equal(ValidationResultType.Invalid, result.Type);
+        Assert.Contains("secret_field", result.Message!);
+    }
+
+    [Fact]
+    public async Task Cte_MultipleWithOneBad_ReturnsInvalid()
+    {
+        var parsed = this._astProvider.GetOrParse(
+            "WITH a AS (SELECT id FROM products), b AS (SELECT id FROM secret_table) SELECT * FROM a");
+        var result = await this._validator.ValidateAsync(parsed, MakeRules());
+        Assert.Equal(ValidationResultType.Invalid, result.Type);
+        Assert.Contains("secret_table", result.Message!);
+    }
+
+    [Fact]
+    public async Task Cte_WithJoinInside_ValidatesBothTables()
+    {
+        var parsed = this._astProvider.GetOrParse(
+            "WITH cte AS (SELECT p.id, o.total_amount FROM products p JOIN orders o ON p.id = o.customer_id) SELECT * FROM cte");
+        var result = await this._validator.ValidateAsync(parsed, MakeRules());
+        Assert.Equal(ValidationResultType.Valid, result.Type);
+    }
+
+    [Fact]
+    public async Task Cte_WithJoinReferencingUnknownTable_ReturnsInvalid()
+    {
+        var parsed = this._astProvider.GetOrParse(
+            "WITH cte AS (SELECT p.id FROM products p JOIN secrets s ON p.id = s.product_id) SELECT * FROM cte");
+        var result = await this._validator.ValidateAsync(parsed, MakeRules());
+        Assert.Equal(ValidationResultType.Invalid, result.Type);
+        Assert.Contains("secrets", result.Message!);
+    }
+
+    [Fact]
+    public async Task Cte_WithAliasedTableAndDisallowedColumn_ReturnsInvalid()
+    {
+        var parsed = this._astProvider.GetOrParse(
+            "WITH cte AS (SELECT p.secret_field FROM products p) SELECT * FROM cte");
+        var result = await this._validator.ValidateAsync(parsed, MakeRules());
+        Assert.Equal(ValidationResultType.Invalid, result.Type);
+        Assert.Contains("secret_field", result.Message!);
+    }
+
+    [Fact]
+    public async Task Cte_QualifiedColumnFromCteInOuterQuery_ReturnsValid()
+    {
+        var parsed = this._astProvider.GetOrParse(
+            "WITH cte AS (SELECT id, name FROM products) SELECT cte.id FROM cte");
+        var result = await this._validator.ValidateAsync(parsed, MakeRules());
+        Assert.Equal(ValidationResultType.Valid, result.Type);
+    }
+
+    [Fact]
+    public async Task Cte_ChainedCtesWithAllowedTables_ReturnsValid()
+    {
+        var parsed = this._astProvider.GetOrParse(
+            "WITH a AS (SELECT id, name FROM products), b AS (SELECT id FROM a) SELECT * FROM b");
+        var result = await this._validator.ValidateAsync(parsed, MakeRules());
+        Assert.Equal(ValidationResultType.Valid, result.Type);
+    }
 }

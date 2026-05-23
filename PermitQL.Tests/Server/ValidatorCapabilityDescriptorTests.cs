@@ -12,7 +12,7 @@ public sealed class ValidatorCapabilityDescriptorTests
 
         var capabilities = descriptor.Describe();
 
-        Assert.Equal(CapabilitySupport.Unsupported, capabilities.Ctes);
+        Assert.Equal(CapabilitySupport.Supported,   capabilities.Ctes);
         Assert.Equal(CapabilitySupport.Supported,   capabilities.Subqueries);
         Assert.Equal(CapabilitySupport.Supported,   capabilities.DerivedTables);
         Assert.Equal(CapabilitySupport.Unknown,     capabilities.WindowFunctions);

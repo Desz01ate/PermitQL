@@ -7,7 +7,7 @@ public sealed class ValidatorCapabilityDescriptor
     public QueryCapabilityMetadata Describe()
     {
         return new QueryCapabilityMetadata(
-            Ctes: CapabilitySupport.Unsupported,
+            Ctes: CapabilitySupport.Supported,
             Subqueries: CapabilitySupport.Supported,
             DerivedTables: CapabilitySupport.Supported,
             WindowFunctions: CapabilitySupport.Unknown,
