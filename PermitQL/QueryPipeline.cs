@@ -31,9 +31,10 @@ public sealed class QueryPipeline : IQueryPipeline
         string ruleSetKey,
         CancellationToken cancellationToken = default)
     {
+        RuleSet? rules = null;
         try
         {
-            var rules = this._rulesProvider.GetRuleSet(ruleSetKey);
+            rules = this._rulesProvider.GetRuleSet(ruleSetKey);
             var parsed = this._astProvider.GetOrParse(query);
             var validation = await this._validator.ValidateAsync(parsed, rules, cancellationToken);
 
@@ -60,6 +61,15 @@ public sealed class QueryPipeline : IQueryPipeline
         }
         catch (Exception e)
         {
+            if (rules is not null && !rules.ExposeDetailedErrors
+                && e is not QueryValidationFailedException
+                && e is not AmbiguousTableException
+                && e is not SqlParseException
+                && e is not OperationCanceledException)
+            {
+                return new Exception("Query execution failed.");
+            }
+
             return e;
         }
     }

@@ -37,11 +37,38 @@ public abstract class QueryRewriterBase : IQueryRewriter
         var statement = (Statement.Select)freshStatements[0];
         var freshQuery = statement.Query;
 
-        if (freshQuery.Body is not SetExpression.SelectExpression selectExpr)
+        var modifiedWith = await this.RewriteCtesAsync(freshQuery.With, rules, cancellationToken);
+        var modifiedBody = await this.RewriteSetExpressionAsync(freshQuery.Body, rules, cancellationToken);
+
+        // Row limit: Top lives on Select, while Limit and Fetch live on Query.
+        Top? currentTop = modifiedBody is SetExpression.SelectExpression sel ? sel.Select.Top : null;
+        var rowLimit = this.ApplyRowLimit(freshQuery.Limit, currentTop, freshQuery.Fetch, rules);
+
+        if (modifiedBody is SetExpression.SelectExpression selExpr)
         {
-            return statement.ToSql();
+            modifiedBody = selExpr with
+            {
+                Select = selExpr.Select with { Top = rowLimit.Top },
+            };
         }
 
+        var modifiedQuery = freshQuery with
+        {
+            With = modifiedWith,
+            Body = modifiedBody,
+            Limit = rowLimit.Limit,
+            Fetch = rowLimit.Fetch,
+        };
+        var modifiedStatement = statement with { Query = modifiedQuery };
+
+        return modifiedStatement.ToSql();
+    }
+
+    private async ValueTask<SetExpression> RewriteSelectExpressionAsync(
+        SetExpression.SelectExpression selectExpr,
+        RuleSet rules,
+        CancellationToken cancellationToken)
+    {
         var select = selectExpr.Select;
 
         var aliasMap = BuildAliasMap(select);
@@ -64,25 +91,54 @@ public abstract class QueryRewriterBase : IQueryRewriter
             modifiedFrom = select.From;
         }
 
-        var rowLimit = this.ApplyRowLimit(freshQuery.Limit, select.Top, freshQuery.Fetch, rules);
-
         var modifiedSelect = select with
         {
             Projection = modifiedProjection,
             Selection = modifiedSelection,
             From = modifiedFrom,
-            Top = rowLimit.Top,
         };
-        var modifiedBody = selectExpr with { Select = modifiedSelect };
-        var modifiedQuery = freshQuery with
-        {
-            Body = modifiedBody,
-            Limit = rowLimit.Limit,
-            Fetch = rowLimit.Fetch,
-        };
-        var modifiedStatement = statement with { Query = modifiedQuery };
 
-        return modifiedStatement.ToSql();
+        return selectExpr with { Select = modifiedSelect };
+    }
+
+    private async ValueTask<SetExpression> RewriteSetExpressionAsync(
+        SetExpression body,
+        RuleSet rules,
+        CancellationToken cancellationToken)
+    {
+        return body switch
+        {
+            SetExpression.SelectExpression sel =>
+                await this.RewriteSelectExpressionAsync(sel, rules, cancellationToken),
+            SetExpression.SetOperation op => op with
+            {
+                Left = await this.RewriteSetExpressionAsync(op.Left, rules, cancellationToken),
+                Right = await this.RewriteSetExpressionAsync(op.Right, rules, cancellationToken),
+            },
+            _ => body,
+        };
+    }
+
+    private async ValueTask<With?> RewriteCtesAsync(
+        With? withClause,
+        RuleSet rules,
+        CancellationToken cancellationToken)
+    {
+        if (withClause is null)
+            return null;
+
+        var modifiedCteTables = new Sequence<CommonTableExpression>();
+
+        foreach (var cte in withClause.CteTables)
+        {
+            var modifiedCteBody = await this.RewriteSetExpressionAsync(
+                cte.Query.Body, rules, cancellationToken);
+
+            var modifiedCteQuery = cte.Query with { Body = modifiedCteBody };
+            modifiedCteTables.Add(cte with { Query = modifiedCteQuery });
+        }
+
+        return withClause with { CteTables = modifiedCteTables };
     }
 
     private static Dictionary<string, string> BuildAliasMap(Select select)

@@ -4,6 +4,7 @@ global_limits:
   max_rows_returned: 100
   timeout_ms: 5000
   allowed_operations: [select] # supported: select, insert, update, delete
+expose_detailed_errors: false
 
 exposed_schemas:
   public:

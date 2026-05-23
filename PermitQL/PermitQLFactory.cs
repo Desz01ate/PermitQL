@@ -102,14 +102,17 @@ public class PermitQLFactory : IPermitQLFactory
         };
     }
 
-    public virtual IDataAccessor CreateDataAccessor(Func<DbConnection> connectionFactory)
+    public virtual IDataAccessor CreateDataAccessor(
+        Func<DbConnection> connectionFactory,
+        int? commandTimeoutSeconds = null)
         => new AdoNetDataAccessor(
-            connectionFactory, 
-            this.CreateConstraintResolver(), 
-            this.CreateRelationshipResolver(), 
-            this.CreateIndexResolver(), 
-            this.CreateStatisticsResolver(), 
-            this.CreateProviderCapabilityResolver());
+            connectionFactory,
+            this.CreateConstraintResolver(),
+            this.CreateRelationshipResolver(),
+            this.CreateIndexResolver(),
+            this.CreateStatisticsResolver(),
+            this.CreateProviderCapabilityResolver(),
+            commandTimeoutSeconds);
 
     public virtual IQueryPipeline CreatePipeline(
         IRulesProvider rulesProvider,

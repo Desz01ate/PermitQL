@@ -26,7 +26,7 @@ public interface IPermitQLFactory
 
     IProviderCapabilityResolver CreateProviderCapabilityResolver();
 
-    IDataAccessor CreateDataAccessor(Func<DbConnection> connectionFactory);
+    IDataAccessor CreateDataAccessor(Func<DbConnection> connectionFactory, int? commandTimeoutSeconds = null);
 
     IQueryPipeline CreatePipeline(
         IRulesProvider rulesProvider,

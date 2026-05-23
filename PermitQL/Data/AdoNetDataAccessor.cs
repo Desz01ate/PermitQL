@@ -13,6 +13,7 @@ public sealed class AdoNetDataAccessor : IDataAccessor
     private readonly IIndexResolver _indexResolver;
     private readonly IStatisticsResolver _statisticsResolver;
     private readonly IProviderCapabilityResolver _capabilityResolver;
+    private readonly int? _commandTimeoutSeconds;
 
     public AdoNetDataAccessor(
         Func<DbConnection> connectionFactory,
@@ -20,7 +21,8 @@ public sealed class AdoNetDataAccessor : IDataAccessor
         IRelationshipResolver? relationshipResolver = null,
         IIndexResolver? indexResolver = null,
         IStatisticsResolver? statisticsResolver = null,
-        IProviderCapabilityResolver? capabilityResolver = null)
+        IProviderCapabilityResolver? capabilityResolver = null,
+        int? commandTimeoutSeconds = null)
     {
         this._connectionFactory = connectionFactory;
         this._constraintResolver = constraintResolver ?? NullConstraintResolver.Instance;
@@ -28,6 +30,7 @@ public sealed class AdoNetDataAccessor : IDataAccessor
         this._indexResolver = indexResolver ?? NullIndexResolver.Instance;
         this._statisticsResolver = statisticsResolver ?? NullStatisticsResolver.Instance;
         this._capabilityResolver = capabilityResolver ?? NullProviderCapabilityResolver.Instance;
+        this._commandTimeoutSeconds = commandTimeoutSeconds;
     }
 
     public AdoNetDataAccessor(Func<DbConnection> connectionFactory, IForeignKeyResolver? fkResolver)
@@ -45,6 +48,8 @@ public sealed class AdoNetDataAccessor : IDataAccessor
         await connection.OpenAsync(cancellationToken);
         await using var command = connection.CreateCommand();
         command.CommandText = query;
+        if (this._commandTimeoutSeconds.HasValue)
+            command.CommandTimeout = this._commandTimeoutSeconds.Value;
         await using var reader = await command.ExecuteReaderAsync(
             System.Data.CommandBehavior.SchemaOnly | System.Data.CommandBehavior.KeyInfo,
             cancellationToken);
@@ -153,6 +158,8 @@ public sealed class AdoNetDataAccessor : IDataAccessor
         await connection.OpenAsync(cancellationToken);
         await using var command = connection.CreateCommand();
         command.CommandText = query;
+        if (this._commandTimeoutSeconds.HasValue)
+            command.CommandTimeout = this._commandTimeoutSeconds.Value;
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
         var fieldCount = reader.FieldCount;
 
