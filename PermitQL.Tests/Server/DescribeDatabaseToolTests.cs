@@ -138,7 +138,7 @@ public sealed class DescribeDatabaseToolTests
         this._rulesProvider.GetRuleSet("test").Returns(rules);
         this._factory.Dialect.Returns(SqlDialect.PostgreSql);
 
-        // Provider says CTEs supported, but validator says unsupported => validator wins
+        // Provider says CTEs supported, validator also says supported => supported
         this._dataAccessor.GetQueryCapabilitiesAsync(Arg.Any<CancellationToken>())
             .Returns(new QueryCapabilityMetadata(
                 Ctes: CapabilitySupport.Supported,
@@ -148,12 +148,12 @@ public sealed class DescribeDatabaseToolTests
                 Mutations: CapabilitySupport.Supported,
                 Notes: ["provider note"]));
 
-        // ValidatorCapabilityDescriptor returns: CTEs=Unsupported, Subqueries=Supported,
+        // ValidatorCapabilityDescriptor returns: CTEs=Supported, Subqueries=Supported,
         // DerivedTables=Supported, WindowFunctions=Unknown, Mutations=Supported
         var root = await this.CallDescribeDatabase();
         var caps = root.GetProperty("capabilities");
 
-        Assert.Equal("unsupported", caps.GetProperty("ctes").GetString());
+        Assert.Equal("supported", caps.GetProperty("ctes").GetString());
         Assert.Equal("supported", caps.GetProperty("subqueries").GetString());
         Assert.Equal("supported", caps.GetProperty("derivedTables").GetString());
         // WindowFunctions=Unknown from validator => provider's Supported wins

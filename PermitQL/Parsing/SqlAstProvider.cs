@@ -53,10 +53,14 @@ public sealed class SqlAstProvider : ISqlAstProvider
         var columns = new HashSet<QualifiedColumnName>();
         QualifiedTableName? mutationTarget = null;
 
+        List<CteDefinition>? cteDefinitions = null;
+
         switch (statement)
         {
             case Statement.Select selectStmt:
+                cteDefinitions = ExtractCteDefinitions(selectStmt.Query.With, tables);
                 ExtractFromQuery(selectStmt.Query, tables, columns);
+                RemoveCteNamesFromTables(cteDefinitions, tables);
                 break;
 
             case Statement.Insert insertStmt:
@@ -78,7 +82,7 @@ public sealed class SqlAstProvider : ISqlAstProvider
                 break;
         }
 
-        return new ParsedQuery(statement, tables, columns, statementKind, mutationTarget);
+        return new ParsedQuery(statement, tables, columns, statementKind, mutationTarget, cteDefinitions);
     }
 
     private static StatementKind ClassifyStatement(Statement statement) =>
@@ -96,10 +100,7 @@ public sealed class SqlAstProvider : ISqlAstProvider
         HashSet<QualifiedTableName> tables,
         HashSet<QualifiedColumnName> columns)
     {
-        if (query.Body is SetExpression.SelectExpression selectExpr)
-        {
-            ExtractFromSelect(selectExpr.Select, tables, columns);
-        }
+        ExtractFromSetExpression(query.Body, tables, columns);
 
         if (query.OrderBy is { Expressions: { } orderByExprs })
         {
@@ -107,6 +108,24 @@ public sealed class SqlAstProvider : ISqlAstProvider
             {
                 ExtractColumnsFromExpression(orderExpr.Expression, columns);
             }
+        }
+    }
+
+    private static void ExtractFromSetExpression(
+        SetExpression? body,
+        HashSet<QualifiedTableName> tables,
+        HashSet<QualifiedColumnName> columns)
+    {
+        switch (body)
+        {
+            case SetExpression.SelectExpression selectExpr:
+                ExtractFromSelect(selectExpr.Select, tables, columns);
+                break;
+
+            case SetExpression.SetOperation setOp:
+                ExtractFromSetExpression(setOp.Left, tables, columns);
+                ExtractFromSetExpression(setOp.Right, tables, columns);
+                break;
         }
     }
 
@@ -322,5 +341,117 @@ public sealed class SqlAstProvider : ISqlAstProvider
                 ExtractColumnsFromExpression(funcExpr.Expression, columns);
             }
         }
+    }
+
+    private static List<CteDefinition>? ExtractCteDefinitions(
+        With? withClause,
+        HashSet<QualifiedTableName> outerTables)
+    {
+        if (withClause is null)
+            return null;
+
+        var cteDefinitions = new List<CteDefinition>();
+        var cteNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var cte in withClause.CteTables)
+        {
+            var cteName = cte.Alias.Name.Value;
+            cteNames.Add(cteName);
+
+            var columnAliases = cte.Alias.Columns is { Count: > 0 } cols
+                ? cols.Select(c => c.Value).ToList()
+                : null;
+
+            var cteTables = new HashSet<QualifiedTableName>();
+            var cteColumns = new HashSet<QualifiedColumnName>();
+            ExtractFromQuery(cte.Query, cteTables, cteColumns);
+
+            cteTables.RemoveWhere(t => t.Schema is null && cteNames.Contains(t.Table));
+
+            var aliasMap = BuildCteAliasMap(cte.Query);
+
+            outerTables.UnionWith(cteTables);
+
+            cteDefinitions.Add(new CteDefinition(
+                cteName,
+                columnAliases,
+                cteTables,
+                cteColumns,
+                aliasMap));
+        }
+
+        return cteDefinitions;
+    }
+
+    private static void RemoveCteNamesFromTables(
+        List<CteDefinition>? cteDefinitions,
+        HashSet<QualifiedTableName> tables)
+    {
+        if (cteDefinitions is null)
+            return;
+
+        foreach (var cte in cteDefinitions)
+        {
+            tables.RemoveWhere(t => t.Schema is null
+                && string.Equals(t.Table, cte.Name, StringComparison.OrdinalIgnoreCase));
+        }
+    }
+
+    private static Dictionary<string, string> BuildCteAliasMap(Query query)
+    {
+        var aliasMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        CollectAliasesFromSetExpression(query.Body, aliasMap);
+        return aliasMap;
+    }
+
+    private static void CollectAliasesFromSetExpression(
+        SetExpression? body,
+        Dictionary<string, string> aliasMap)
+    {
+        switch (body)
+        {
+            case SetExpression.SelectExpression selectExpr:
+                CollectAliasesFromSelect(selectExpr.Select, aliasMap);
+                break;
+
+            case SetExpression.SetOperation setOp:
+                CollectAliasesFromSetExpression(setOp.Left, aliasMap);
+                CollectAliasesFromSetExpression(setOp.Right, aliasMap);
+                break;
+        }
+    }
+
+    private static void CollectAliasesFromSelect(Select select, Dictionary<string, string> aliasMap)
+    {
+        if (select.From is null)
+            return;
+
+        foreach (var tableWithJoins in select.From)
+        {
+            RegisterAlias(tableWithJoins.Relation, aliasMap);
+
+            if (tableWithJoins.Joins is { } joins)
+            {
+                foreach (var join in joins)
+                    RegisterAlias(join.Relation, aliasMap);
+            }
+        }
+    }
+
+    private static void RegisterAlias(TableFactor? tableFactor, Dictionary<string, string> aliasMap)
+    {
+        if (tableFactor is not TableFactor.Table table)
+            return;
+
+        var names = table.Name.Values;
+        if (names.Count == 0)
+            return;
+
+        var tableName = names[^1].Value;
+
+        if (table.Alias is { } alias)
+            aliasMap[alias.Name.Value] = tableName;
+
+        aliasMap[tableName] = tableName;
     }
 }

@@ -185,4 +185,87 @@ public class SqlAstProviderTests
         var result = this._provider.GetOrParse("SELECT id FROM products");
         Assert.Null(result.MutationTarget);
     }
+
+    // --- CTE parsing tests ---
+
+    [Fact]
+    public void GetOrParse_SimpleCte_ExtractsRealTableExcludesCteName()
+    {
+        var result = this._provider.GetOrParse(
+            "WITH active AS (SELECT id FROM products) SELECT * FROM active");
+        Assert.Contains(result.ReferencedTables, t => t.Table == "products");
+        Assert.DoesNotContain(result.ReferencedTables, t => t.Table == "active");
+        Assert.NotNull(result.CteDefinitions);
+        Assert.Single(result.CteDefinitions!);
+        Assert.Equal("active", result.CteDefinitions![0].Name);
+        Assert.Contains(result.CteDefinitions[0].InnerReferencedTables, t => t.Table == "products");
+    }
+
+    [Fact]
+    public void GetOrParse_MultipleCtes_ExtractsBothCorrectly()
+    {
+        var result = this._provider.GetOrParse(
+            "WITH a AS (SELECT id FROM products), b AS (SELECT id FROM orders) SELECT * FROM a JOIN b ON a.id = b.id");
+        Assert.Contains(result.ReferencedTables, t => t.Table == "products");
+        Assert.Contains(result.ReferencedTables, t => t.Table == "orders");
+        Assert.DoesNotContain(result.ReferencedTables, t => t.Table == "a");
+        Assert.DoesNotContain(result.ReferencedTables, t => t.Table == "b");
+        Assert.Equal(2, result.CteDefinitions!.Count);
+    }
+
+    [Fact]
+    public void GetOrParse_ChainedCtes_LaterReferencingEarlier_ExcludesEarlierFromInnerTables()
+    {
+        var result = this._provider.GetOrParse(
+            "WITH a AS (SELECT id FROM products), b AS (SELECT id FROM a) SELECT * FROM b");
+        Assert.Contains(result.ReferencedTables, t => t.Table == "products");
+        Assert.DoesNotContain(result.ReferencedTables, t => t.Table == "a");
+        Assert.DoesNotContain(result.ReferencedTables, t => t.Table == "b");
+        Assert.DoesNotContain(result.CteDefinitions![1].InnerReferencedTables, t => t.Table == "a");
+    }
+
+    [Fact]
+    public void GetOrParse_CteWithColumnAliases_ExtractsAliases()
+    {
+        var result = this._provider.GetOrParse(
+            "WITH cte(product_id, product_name) AS (SELECT id, name FROM products) SELECT product_id FROM cte");
+        Assert.NotNull(result.CteDefinitions![0].ColumnAliases);
+        Assert.Equal(["product_id", "product_name"], result.CteDefinitions[0].ColumnAliases);
+    }
+
+    [Fact]
+    public void GetOrParse_RecursiveCte_ExcludesSelfReference()
+    {
+        var result = this._provider.GetOrParse(
+            "WITH RECURSIVE hierarchy AS (SELECT id, parent_id FROM categories WHERE parent_id IS NULL UNION ALL SELECT c.id, c.parent_id FROM categories c JOIN hierarchy h ON c.parent_id = h.id) SELECT * FROM hierarchy");
+        Assert.Contains(result.ReferencedTables, t => t.Table == "categories");
+        Assert.DoesNotContain(result.ReferencedTables, t => t.Table == "hierarchy");
+    }
+
+    [Fact]
+    public void GetOrParse_CteWithJoin_ExtractsAllInnerTables()
+    {
+        var result = this._provider.GetOrParse(
+            "WITH cte AS (SELECT p.id, o.total_amount FROM products p JOIN orders o ON p.id = o.customer_id) SELECT * FROM cte");
+        Assert.Contains(result.ReferencedTables, t => t.Table == "products");
+        Assert.Contains(result.ReferencedTables, t => t.Table == "orders");
+        Assert.DoesNotContain(result.ReferencedTables, t => t.Table == "cte");
+    }
+
+    [Fact]
+    public void GetOrParse_NoCte_CteDefinitionsIsNull()
+    {
+        var result = this._provider.GetOrParse("SELECT id FROM products");
+        Assert.Null(result.CteDefinitions);
+    }
+
+    [Fact]
+    public void GetOrParse_CteWithInnerAliases_BuildsAliasMap()
+    {
+        var result = this._provider.GetOrParse(
+            "WITH cte AS (SELECT p.id FROM products p) SELECT * FROM cte");
+        Assert.NotNull(result.CteDefinitions![0].InnerAliasMap);
+        Assert.True(result.CteDefinitions[0].InnerAliasMap.ContainsKey("p"));
+        Assert.Equal("products", result.CteDefinitions[0].InnerAliasMap["p"]);
+    }
 }
